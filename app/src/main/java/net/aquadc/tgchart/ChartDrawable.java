@@ -180,14 +180,14 @@ public final class ChartDrawable extends Drawable {
             int pairs = lastVisibleIdx - firstVisibleIdx;
             nanos = System.nanoTime() - nanos;
             double sum = 0;
-            for (int i = 0; i < pairs;) {
+            for (int i = firstVisibleIdx; i < lastVisibleIdx;) {
                 float v = normalized[i++];
                 sum += normalized[i] - v;
             }
             TextPaint tp = new TextPaint();
             tp.setColor(0xFF_65B9AC);
             tp.setTextSize(36);
-            canvas.drawText(String.format("avg. dx = %.2f", sum / pairs), 10, 30, tp);
+            canvas.drawText(String.format("avg. dx = %.2f", sum * xScale / pairs), 10, 30, tp);
             canvas.drawText(String.format("draw: %d μs", nanos / 1000), 10, 70, tp);
         }
     }
