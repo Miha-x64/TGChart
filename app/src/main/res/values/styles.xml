@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Android themes are nonsense, but there's no clean programmatic way to set ActionBar text colour, too -->
+    <style name="StupidTheme" parent="@android:style/Theme.DeviceDefault.Light.DarkActionBar">
+        <item name="android:actionBarStyle">@style/StupidTheme.ActionBarStyle</item>
+    </style>
+    <style name="StupidTheme.ActionBarStyle" parent="@android:style/Widget.DeviceDefault.ActionBar">
+        <item name="android:titleTextStyle">@style/StupidTheme.ActionBar.TitleTextStyle</item>
+    </style>
+    <style name="StupidTheme.ActionBar.TitleTextStyle" parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title">
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+
+</resources>

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Statistics</string>
+    <string name="menu_light_dark">Toggle light/dark mode</string>
 </resources>
