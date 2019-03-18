@@ -20,7 +20,7 @@ public final class ChartDrawable extends Drawable {
 
     private static final boolean DEBUG = false;
 
-    private final Chart data;
+    final Chart data; // package-private shortcut for ChartExtrasView
 
     // paths are cool & shit, but cannot be drawn partially
     /*private float[] normalizedXValues;
@@ -150,8 +150,6 @@ public final class ChartDrawable extends Drawable {
                 double colYMax = column.maxValue;
                 double colYDiff = colYMax - column.minValue;
                 float yScale = (float) (colYDiff / yDiff) * heightFactor;
-
-                // fixme: disabling top/bottom data set moves bottom/top data somehow
 
                 float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
                 canvas.translate(translateX, translateY);
@@ -305,7 +303,7 @@ public final class ChartDrawable extends Drawable {
             if (canvas == null) { // dry run just for measurement
                 numberSb.setLength(0);
                 if (textWidth > maxTextWidth) {
-                    return false; // todo: should return a multiplier for mextWidth, e. g. 2, 4, 8, etc
+                    return false; // todo: should return a multiplier for nextWidth, e. g. 2, 4, 8, etc
                 }
             } else {
                 canvas.drawText(numberSb, 0, numberSbLen, xPos * xScale - textWidth / 2, y, numberPaint);
@@ -463,27 +461,46 @@ public final class ChartDrawable extends Drawable {
 
     private static int indexOfClosest(float[] haystack, int fromIndex, int toIndex, float needle) {
         int index = Arrays.binarySearch(haystack, fromIndex, toIndex, needle);
-        return index >= 0 ? index : -index - 1;
+        if (index >= 0) {
+            return index;
+        } else {
+            index = -index - 1;
+            if (index == toIndex) index--; // insertion point == length
+            return index;
+        }
     }
 
     public interface ValueFormatter {
         void formatValueInto(StringBuilder sb, double value);
     }
 
-    // relations with ChartExtrasView
+    // shortcust for ChartExtrasView
 
-    public int getXIndexAt(float xPos) {
+    int getIndexAt(float xPos) {
         if (dirty) normalize();
 
-        float xScale = xScale();
-        float scaledX = xPos / xScale;
-        return indexOfClosest(normalized, 0, data.x.values.length, scaledX);
+        float scaledX = xPos / xScale();
+        int length = data.x.values.length;
+        return indexOfClosest(normalized, 0, length, scaledX);
     }
-
-    public float getXPositionAt(int xIndex) {
+    float getXPositionAt(int index) {
         if (dirty) normalize();
 
-        return normalized[xIndex] * xScale();
+        return normalized[index] * xScale();
+    }
+    double getXValueAt(int index) {
+        return data.x.values[index];
+    }
+    double[] getYValuesAt(int index, double[] dest) {
+        Chart.Column[] cols = data.columns;
+        int length = cols.length;
+        if (dest == null || dest.length != length) {
+            dest = new double[length];
+        }
+        for (int i = 0; i < length; i++) {
+            dest[i] = cols[i].values[index];
+        }
+        return dest;
     }
 
     // kinda copy-paste of draw() contents

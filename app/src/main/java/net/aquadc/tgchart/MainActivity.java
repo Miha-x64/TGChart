@@ -30,6 +30,7 @@ import com.codemonkeylabs.fpslibrary.TinyDancer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 
 public final class MainActivity extends Activity
@@ -44,7 +45,7 @@ public final class MainActivity extends Activity
 
     // put charts and extras to different displayLists so extras redraw won't trigger chart redraw
     private FrameLayout chartView;
-//    private ChartExtrasView chartExtrasView; // balloon, etc
+    private ChartBubbleView chartBubbleView; // balloon, etc
 
     private FrameLayout rangeBarChartView;
     private RangeBar rangeBar;
@@ -66,16 +67,23 @@ public final class MainActivity extends Activity
         if (chart == null) {
             chart = Chart.readTestChart(this); // TODO: mv to bg
         }
-        format = new SimpleDateFormat("MMM d", getResources().getConfiguration().locale);
+
+        // TODO: move numbers to createContentView()
+        Locale locale = getResources().getConfiguration().locale;
+        shortFormat = new SimpleDateFormat("MMM d", locale);
         float dp = getResources().getDisplayMetrics().density;
         float sp = getResources().getDisplayMetrics().scaledDensity;
-        bigChart = new ChartDrawable(chart, (int) (2.5f * dp));
+        bigChart = new ChartDrawable(chart, (int) (2.5f * dp)); // TODO: convert these ints to floats & remove casts
         bigChart.configureGuidelines((int) (1.5f * dp), (int) (4 * dp), (int) (14 * sp), this, countFormatter);
         bigChart.occupyEvenIfEmptyY(Double.MIN_VALUE, 0);
         ViewCompat.setBackground(chartView, bigChart);
 
-//        chartExtrasView.setChart(bigChart);
-//        chartExtrasView.setGuidelineThickness((int) (1.5f * dp));
+        longFormat = new SimpleDateFormat("E, MMM d", locale);
+        chartBubbleView.setChart(bigChart);
+        chartBubbleView.setGuidelineThickness((int) (1.5f * dp));
+        chartBubbleView.setTextSizes((int) (14 * sp), (int) (16 * sp), (int) (12 * sp), (int) (8 * sp));
+        chartBubbleView.setPadding(0, 0, 0, /* textSize * 2 */ (int) (28 * sp));
+        chartBubbleView.setFormatters(longDateFormatter, countFormatter);
 
         smallChart = new ChartDrawable(chart, Math.max(1, (int) dp));
         ViewCompat.setBackground(rangeBarChartView, smallChart); // split up chart and bar, so invalidate()
@@ -89,11 +97,18 @@ public final class MainActivity extends Activity
         applyColours(colourMode);
     }
     private final Date date = new Date();
-    private DateFormat format;
-    @Override public void formatValueInto(StringBuilder sb, double value) {
+    private DateFormat shortFormat;
+    @Override public void formatValueInto(StringBuilder sb, double value) { // TODO: dedupe
         date.setTime((long) value);
-        sb.append(format.format(date)); // DateFormat supports appending only into StringBuffer and thus sucks
+        sb.append(shortFormat.format(date)); // DateFormat supports appending only into StringBuffer and thus sucks
     }
+    DateFormat longFormat;
+    private final ChartDrawable.ValueFormatter longDateFormatter = new ChartDrawable.ValueFormatter() {
+        @Override public void formatValueInto(StringBuilder sb, double value) {
+            date.setTime((long) value);
+            sb.append(longFormat.format(date));
+        }
+    };
     @Override public void onSelectedRangeChanged(int selectionStart, int selectionEnd) {
         bigChart.setVisibleRange(selectionStart, selectionEnd);
 //        chartExtrasView.setVisibleRange(selectionStart, selectionEnd);
@@ -144,9 +159,9 @@ public final class MainActivity extends Activity
             chartLp.setMargins(margins, 0, margins, 0);
             chartView.setLayoutParams(chartLp);
             {
-//                chartExtrasView = new ChartExtrasView(this);
-//                chartExtrasView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-//                chartView.addView(chartExtrasView);
+                chartBubbleView = new ChartBubbleView(this);
+                chartBubbleView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                chartView.addView(chartBubbleView);
             }
             ll.addView(chartView);
 
@@ -236,8 +251,9 @@ public final class MainActivity extends Activity
                 ViewCompat.setBackground(sheetShadow, shadowDrawable.getDrawable(1));
                 ViewCompat.setBackground(windowBackground, windowBackgroundDrawable.getDrawable(1));
                 bigChart.setGuidelineColour(colourMode.guideline);
-//                chartExtrasView.setGuidelineColour(colourMode.guideline);
                 bigChart.setNumberColour(colourMode.numbers);
+                chartBubbleView.setGuidelineColour(colourMode.guideline);
+                chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
             }
         });
         set.start();
@@ -275,6 +291,9 @@ public final class MainActivity extends Activity
                     }
                 }
                 unit = units[unitIdx];
+            }
+            if (unit != '\0') { // round value to a single digit after comma
+                value = Math.round(10 * value) / 10.0d;
             }
             sb.append(value);
             int i = sb.lastIndexOf(".0");
