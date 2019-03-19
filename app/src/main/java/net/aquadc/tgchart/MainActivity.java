@@ -94,17 +94,15 @@ public final class MainActivity extends Activity
         if (savedInstanceState != null) {
             colourMode = (ColourMode) savedInstanceState.getSerializable(K_COLOUR_MODE);
         }
-        applyColours(colourMode);
+        applyColours(colourMode, false);
     }
     @Override public void onSelectedRangeChanged(int selectionStart, int selectionEnd) {
         bigChart.setVisibleRange(selectionStart, selectionEnd);
-//        chartExtrasView.setVisibleRange(selectionStart, selectionEnd);
     }
     @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         boolean checked = columnChooser.isItemChecked(position);
         bigChart.setColumnVisibleAt(position, checked);
         smallChart.setColumnVisibleAt(position, checked);
-//        chartExtrasView.setColumnVisibleAt(position, checked);
     }
 
     @Override public boolean onCreateOptionsMenu(Menu menu) {
@@ -115,7 +113,7 @@ public final class MainActivity extends Activity
     }
     @Override public boolean onOptionsItemSelected(MenuItem item) {
         // assert item is menu_light_dark
-        applyColours(colourMode.next());
+        applyColours(colourMode.next(), true);
 
         return true;
     }
@@ -195,33 +193,29 @@ public final class MainActivity extends Activity
 
     @SuppressWarnings("unchecked")
     private static final TypeEvaluator<Integer> ARGB_EVAL = new ArgbEvaluator();
-    private void applyColours(final ColourMode colourMode) { // TODO: apply first state instantaneously
-        AnimatorSet set = new AnimatorSet();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) { // yeah, I'm too damn lazy for making a special IntProperty for this
-            set.playTogether(ObjectAnimator.ofArgb(getWindow(), "statusBarColor", this.colourMode.statusBar, colourMode.statusBar));
+    private void applyColours(final ColourMode colourMode, boolean anim) {
+        AnimatorSet set = anim ? new AnimatorSet() : null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            addArgbAnim(set, getWindow(), Util.Lollipop.STATUS_BAR_COLOR, this.colourMode.statusBar, colourMode.statusBar);
         }
 
-        final TransitionDrawable actionBarBackground = colourTransition(null, this.colourMode.toolbar, colourMode.toolbar);
-        getActionBar().setBackgroundDrawable(actionBarBackground);
+        getActionBar().setBackgroundDrawable(addColorDrawableTransit(set, null, this.colourMode.toolbar, colourMode.toolbar));
 
-        final TransitionDrawable sheetBackground = colourTransition(null, this.colourMode.sheet, colourMode.sheet);
-        getWindow().setBackgroundDrawable(sheetBackground);
+        getWindow().setBackgroundDrawable(addColorDrawableTransit(set, null, this.colourMode.sheet, colourMode.sheet));
 
-        final TransitionDrawable shadowDrawable = new TransitionDrawable(new Drawable[] {
-                new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] { this.colourMode.shadow, this.colourMode.window }),
-                new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] { colourMode.shadow, colourMode.window }),
-        });
-        ViewCompat.setBackground(sheetShadow, shadowDrawable);
+        final TransitionDrawable shadowDrawable; {
+            GradientDrawable toShadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{colourMode.shadow, colourMode.window});
+            shadowDrawable = anim ? new TransitionDrawable(new Drawable[]{
+                    new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{this.colourMode.shadow, this.colourMode.window}), toShadow,
+            }) : null;
+            ViewCompat.setBackground(sheetShadow, anim ? shadowDrawable : toShadow);
+        }
 
-        final TransitionDrawable windowBackgroundDrawable =
-                colourTransition(windowBackground.getBackground(), this.colourMode.window, colourMode.window);
-        ViewCompat.setBackground(windowBackground, windowBackgroundDrawable);
+        ViewCompat.setBackground(windowBackground, addColorDrawableTransit(set, windowBackground.getBackground(), this.colourMode.window, colourMode.window));
 
-        set.playTogether(ObjectAnimator.ofObject(
-                titleView, "textColor", ARGB_EVAL, this.colourMode.titleText, colourMode.titleText
-        ));
+        addArgbAnim(set, titleView, Util.TEXT_COLOR, this.colourMode.titleText, colourMode.titleText);
 
-        set.playTogether(columnChooser.animateTextColour(this.colourMode.itemText, colourMode.itemText));
+        addArgbAnim(set, columnChooser, ColumnChooser.TEXT_COLOUR, this.colourMode.itemText, colourMode.itemText);
 
         addArgbAnim(set, columnChooser, ColumnChooser.DIVIDER_COLOUR_PROPERTY, this.colourMode.itemDivider, colourMode.itemDivider);
 
@@ -229,30 +223,43 @@ public final class MainActivity extends Activity
 
         addArgbAnim(set, rangeBar, RangeBar.WINDOW_BORDER_COLOUR_PROP, this.colourMode.rangeWindowBorder, colourMode.rangeWindowBorder);
 
-        set.setDuration(300);
-        actionBarBackground.startTransition(300);
-        sheetBackground.startTransition(300);
-        shadowDrawable.startTransition(300);
-        windowBackgroundDrawable.startTransition(300);
-        set.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator animation) {
-                getActionBar().setBackgroundDrawable(actionBarBackground.getDrawable(1));
-                getWindow().setBackgroundDrawable(sheetBackground.getDrawable(1));
-                columnChooser.setSelector(Res.drawableFromTheme(getApplicationContext(), colourMode.baseTheme, android.R.attr.selectableItemBackground));
-                ViewCompat.setBackground(sheetShadow, shadowDrawable.getDrawable(1));
-                ViewCompat.setBackground(windowBackground, windowBackgroundDrawable.getDrawable(1));
-                bigChart.setGuidelineColour(colourMode.guideline);
-                bigChart.setNumberColour(colourMode.numbers);
-                chartBubbleView.setGuidelineColour(colourMode.guideline);
-                chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
-            }
-        });
-        set.start();
         this.colourMode = colourMode;
+        if (set == null) {
+            finishAnim();
+        } else {
+            set.setDuration(300);
+            shadowDrawable.startTransition(300); // fixme: this transition sucks
+            set.addListener(new AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(Animator animation) {
+                    ViewCompat.setBackground(sheetShadow, shadowDrawable.getDrawable(1));
+                    finishAnim();
+                }
+            });
+            set.start();
+        }
     }
+
+    private void finishAnim() {
+        columnChooser.setSelector(Util.drawableFromTheme(getApplicationContext(), colourMode.baseTheme, android.R.attr.selectableItemBackground));
+        bigChart.setGuidelineColour(colourMode.guideline);
+        bigChart.setNumberColour(colourMode.numbers);
+        chartBubbleView.setGuidelineColour(colourMode.guideline);
+        chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
+    }
+
     private static <T> void addArgbAnim(AnimatorSet set,
                                         T target, Property<T, Integer> property, @ColorInt int from, @ColorInt int to) {
-        set.playTogether(ObjectAnimator.ofObject(target, property, ARGB_EVAL, from, to));
+        if (set == null) property.set(target, to);
+        else set.playTogether(ObjectAnimator.ofObject(target, property, ARGB_EVAL, from, to));
+    }
+    private static Drawable addColorDrawableTransit(AnimatorSet set, Drawable prev, @ColorInt int from, @ColorInt int to) {
+        ColorDrawable c = prev instanceof ColorDrawable ? (ColorDrawable) prev : new ColorDrawable();
+        if (set == null) {
+            c.setColor(to);
+        } else {
+            set.playTogether(ObjectAnimator.ofObject(c, Util.COLOR, ARGB_EVAL, from, to));
+        }
+        return c;
     }
     private static TransitionDrawable colourTransition(Drawable prevDrawable, @ColorInt int from, @ColorInt int to) {
         if (prevDrawable instanceof TransitionDrawable) {

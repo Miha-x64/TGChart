@@ -1,7 +1,5 @@
 package net.aquadc.tgchart;
 
-import android.animation.ArgbEvaluator;
-import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Color;
@@ -28,8 +26,8 @@ final class ColumnChooser extends ListView {
 
     public ColumnChooser(Context context) {
         super(context);
-        this.checkMark = Res.drawableFromTheme(context.getApplicationContext(), android.R.style.Theme_DeviceDefault_Light, android.R.attr.listChoiceIndicatorMultiple);
-        this.hPad = Res.dp(context, 16);
+        this.checkMark = Util.drawableFromTheme(context.getApplicationContext(), android.R.style.Theme_DeviceDefault_Light, android.R.attr.listChoiceIndicatorMultiple);
+        this.hPad = Util.dp(context, 16);
         setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
     }
 
@@ -71,19 +69,18 @@ final class ColumnChooser extends ListView {
         }
     };
 
-    ValueAnimator animateTextColour(@ColorInt int from, @ColorInt int to) {
-        final ValueAnimator anim = ValueAnimator.ofObject(new ArgbEvaluator(), from, to);
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override public void onAnimationUpdate(ValueAnimator animation) {
-                int colour = (Integer) animation.getAnimatedValue();
-                for (int i = 0, size = getChildCount(); i < size; i++) {
-                    ((TextView) getChildAt(i)).setTextColor(colour);
-                }
+    public static final Property<ColumnChooser, Integer> TEXT_COLOUR = new Property<ColumnChooser, Integer>(Integer.class, "textColour") {
+        @Override public Integer get(ColumnChooser object) {
+            return ((ChooserAdapter) object.getAdapter()).textColor;
+        }
+        @Override public void set(ColumnChooser object, Integer value) {
+            int colour = value;
+            for (int i = 0, size = object.getChildCount(); i < size; i++) {
+                ((TextView) object.getChildAt(i)).setTextColor(colour);
             }
-        });
-        ((ChooserAdapter) getAdapter()).textColor = to;
-        return anim;
-    }
+            ((ChooserAdapter) object.getAdapter()).textColor = colour;
+        }
+    };
 
     private final /*inner*/ class ChooserAdapter extends BaseAdapter {
 
@@ -114,7 +111,7 @@ final class ColumnChooser extends ListView {
 
         private TextView createView() {
             CheckedTextView v = new CheckedTextView(context);
-            v.setLayoutParams(new ListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Res.dp(context, 54)));
+            v.setLayoutParams(new ListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Util.dp(context, 54)));
             v.setGravity(Gravity.CENTER_VERTICAL);
             v.setCheckMarkDrawable(null);
 
