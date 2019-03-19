@@ -15,10 +15,8 @@
  */
 package net.aquadc.tgchart.card; // changed
 
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -29,9 +27,8 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
-
 import android.os.Build;
-import androidx.annotation.Nullable;
+import androidx.annotation.ColorInt;
 
 /**
  * A rounded rectangle drawable which also includes a shadow around.
@@ -74,7 +71,7 @@ public class RoundRectDrawableWithShadow extends Drawable { // changed visibilit
     // actual value set by developer
     private float mRawShadowSize;
 
-    private ColorStateList mBackground;
+    // removed ColorStateList mBackground
 
     private boolean mDirty = true;
 
@@ -90,12 +87,12 @@ public class RoundRectDrawableWithShadow extends Drawable { // changed visibilit
     private boolean mPrintedShadowClipWarning = false;
 
     // changed visibility modifier
-    public RoundRectDrawableWithShadow(Resources resources, ColorStateList backgroundColor, float radius,
-                                float shadowSize, float maxShadowSize) {
+    public RoundRectDrawableWithShadow(Resources resources, /*was ColorStateList*/ @ColorInt int backgroundColor,
+                                       float radius, float shadowSize, float maxShadowSize) {
         // changed: removed getColor invocations, inlined getDimensionPixelSize(cardview_compat_inset_shadow)
         mInsetShadow = Math.round(resources.getDisplayMetrics().density);
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-        setBackground(backgroundColor);
+        mPaint.setColor(backgroundColor);
         mCornerShadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
         mCornerShadowPaint.setStyle(Paint.Style.FILL);
         mCornerRadius = (int) (radius + .5f);
@@ -105,10 +102,7 @@ public class RoundRectDrawableWithShadow extends Drawable { // changed visibilit
         setShadowSize(shadowSize, maxShadowSize);
     }
 
-    private void setBackground(ColorStateList color) {
-        mBackground = (color == null) ?  ColorStateList.valueOf(Color.TRANSPARENT) : color;
-        mPaint.setColor(mBackground.getColorForState(getState(), mBackground.getDefaultColor()));
-    }
+    // removed private void setBackground(ColorStateList color)
 
     /**
      * Casts the value to an even integer.
@@ -194,22 +188,9 @@ public class RoundRectDrawableWithShadow extends Drawable { // changed visibilit
         }
     }
 
-    @Override
-    protected boolean onStateChange(int[] stateSet) {
-        final int newColor = mBackground.getColorForState(stateSet, mBackground.getDefaultColor());
-        if (mPaint.getColor() == newColor) {
-            return false;
-        }
-        mPaint.setColor(newColor);
-        mDirty = true;
-        invalidateSelf();
-        return true;
-    }
+    // removed @Override protected boolean onStateChange(int[] stateSet)
 
-    @Override
-    public boolean isStateful() {
-        return (mBackground != null && mBackground.isStateful()) || super.isStateful();
-    }
+    // removed @Override public boolean isStateful()
 
     @Override
     public void setColorFilter(ColorFilter cf) {
@@ -374,14 +355,15 @@ public class RoundRectDrawableWithShadow extends Drawable { // changed visibilit
         return content + (mRawMaxShadowSize * SHADOW_MULTIPLIER + mInsetShadow) * 2;
     }
 
-    // changed visibility modifier
-    public void setColor(@Nullable ColorStateList color) {
-        setBackground(color);
+    // changed visibility modifier, replaced ColorStateList with @ColorInt, simplified contents
+    public void setColor(@ColorInt int color) {
+        mPaint.setColor(color);
         invalidateSelf();
     }
 
-    ColorStateList getColor() {
-        return mBackground;
+    @ColorInt // same here
+    public int getColor() {
+        return mPaint.getColor();
     }
 
     interface RoundRectHelper {

@@ -28,11 +28,11 @@ public final class ChartDrawable extends Drawable {
     private Path drawPath;
     private Matrix matrix;*/
 
-    @Px private final int chartThickness;
+    private final float chartThickness;
 
-    @Px private int guidelineThickness;
-    @Px private int textIndent;
-    @Px private int textSize;
+    private float guidelineThickness;
+    private float textIndent;
+    private float textSize;
     private ValueFormatter xValueFormatter;
     private ValueFormatter yValueFormatter;
 
@@ -47,7 +47,7 @@ public final class ChartDrawable extends Drawable {
 
     @ColorInt private int guidelineColour = Color.TRANSPARENT;
 
-    public ChartDrawable(Chart data, @Px int chartThickness) { // TODO: sampling!
+    public ChartDrawable(Chart data, float chartThickness) { // TODO: sampling!
         this.data = data;
         this.chartThickness = chartThickness;
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -61,7 +61,7 @@ public final class ChartDrawable extends Drawable {
         this.firstVisibleXPerMille = 0;
         this.firstInvisibleXPerMille = 1000;
     }
-    public void configureGuidelines(@Px int guidelineThickness, @Px int textIndent, @Px int textSize,
+    public void configureGuidelines(float guidelineThickness, float textIndent, float textSize,
                                     ValueFormatter xValueFormatter, ValueFormatter yValueFormatter) {
         this.guidelineThickness = guidelineThickness;
         this.textIndent = textIndent;
@@ -131,7 +131,7 @@ public final class ChartDrawable extends Drawable {
         int bottomPadding = 0;
         if (drawNumbers && xValueFormatter != null) {
             drawXValues(canvas, xScale, translateX);
-            bottomPadding = 2 * textSize;
+            bottomPadding = (int) (2 * textSize);
         }
         drawNumbers &= yValueFormatter != null;
         if (drawGuidelines || drawNumbers) {
@@ -281,7 +281,7 @@ public final class ChartDrawable extends Drawable {
         }
         textLengthX *= 2; // keep the distance!
 
-        int textY = height() - textIndent;
+        float textY = height() - textIndent;
         // now draw!
         // fixme: measuring and allocating formatted data for two times
         canvas.save();
@@ -540,7 +540,7 @@ public final class ChartDrawable extends Drawable {
         double yDiff = yMax - yMin;
 
         boolean drawNumbers = textSize > 0 && numberPaint != null;
-        int bottomPadding = drawNumbers && xValueFormatter != null ? 2 * textSize : 0;
+        int bottomPadding = drawNumbers && xValueFormatter != null ? (int) (2 * textSize) : 0;
 
         int height = height();
         int chartHeight = height - bottomPadding;

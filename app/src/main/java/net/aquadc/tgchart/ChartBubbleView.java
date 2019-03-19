@@ -28,7 +28,7 @@ public final class ChartBubbleView extends View {
     public ChartBubbleView(Context context) {
         super(context);
         float dp = getResources().getDisplayMetrics().density;
-        bg = new RoundRectDrawableWithShadow(getResources(), ColorStateList.valueOf(Color.WHITE), 8 * dp, 3 * dp, 4 * dp); // TODO: maybe use RoundRectDrawable on 21+
+        bg = new RoundRectDrawableWithShadow(getResources(), Color.WHITE, 8 * dp, 3 * dp, 4 * dp); // TODO: maybe use RoundRectDrawable on 21+
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         bubbleInsets = (int) (16 * dp);
@@ -47,12 +47,12 @@ public final class ChartBubbleView extends View {
         }
     };
 
-    @Px private int xValueTextSize;
-    @Px private int yValueTextSize;
-    @Px private int yLabelTextSize;
-    @Px private int yValueHSpacing;
+    private float xValueTextSize;
+    private float yValueTextSize;
+    private float yLabelTextSize;
+    private float yValueHSpacing;
 
-    public void setTextSizes(@Px int xValue, @Px int yValue, @Px int yLabel, @Px int yValueHSpacing) {
+    public void setTextSizes(float xValue, float yValue, float yLabel, float yValueHSpacing) {
         this.xValueTextSize = xValue;
         this.yValueTextSize = yValue;
         this.yLabelTextSize = yLabel;
@@ -79,7 +79,7 @@ public final class ChartBubbleView extends View {
         }
     };*/
     public void setColours(@ColorInt int bg, @ColorInt int xValue) {
-        this.bg.setColor(ColorStateList.valueOf(bg));
+        this.bg.setColor(bg);
         this.xValueColour = xValue;
         invalidate();
     }
@@ -189,7 +189,7 @@ public final class ChartBubbleView extends View {
             balloonWidth += (lengths[i] = Math.max(valueLen, labelLen)) + yValueHSpacing;
 
             // draw dots
-            paint.setColor(Color.WHITE);
+            paint.setColor(bg.getColor());
             paint.setStyle(Paint.Style.FILL);
             canvas.drawCircle(xPos, yPositions[i], dotRadius, paint);
 
@@ -234,7 +234,7 @@ public final class ChartBubbleView extends View {
             currentLeft += lengths[i] + yValueHSpacing;
         }
     }
-    private void setupTextPaint(@Px int size, @ColorInt int colour) {
+    private void setupTextPaint(float size, @ColorInt int colour) {
         textPaint.setTextSize(size);
         textPaint.setColor(colour);
     }

@@ -74,18 +74,17 @@ public final class MainActivity extends Activity
         shortFormat = new SimpleDateFormat("MMM d", locale);
         float dp = getResources().getDisplayMetrics().density;
         float sp = getResources().getDisplayMetrics().scaledDensity;
-        bigChart = new ChartDrawable(chart, (int) (2.5f * dp)); // TODO: convert these ints to floats & remove casts
-        bigChart.configureGuidelines((int) (1.5f * dp), (int) (4 * dp), (int) (14 * sp), this, countFormatter);
+        bigChart = new ChartDrawable(chart, 2.5f * dp);
+        bigChart.configureGuidelines(1.5f * dp, 4 * dp, 14 * sp, this, countFormatter);
         bigChart.occupyEvenIfEmptyY(Double.MIN_VALUE, 0);
         ViewCompat.setBackground(chartView, bigChart);
 
         longFormat = new SimpleDateFormat("E, MMM d", locale);
         chartBubbleView.setChart(bigChart);
-        chartBubbleView.setTextSizes((int) (14 * sp), (int) (16 * sp), (int) (12 * sp), (int) (8 * sp));
         chartBubbleView.setPadding(0, 0, 0, /* textSize * 2 */ (int) (28 * sp));
         chartBubbleView.setFormatters(longDateFormatter, countFormatter);
 
-        smallChart = new ChartDrawable(chart, Math.max(1, (int) dp));
+        smallChart = new ChartDrawable(chart, Math.max(1, dp));
         ViewCompat.setBackground(rangeBarChartView, new InsetDrawable(smallChart, rangeBar.getPaddingLeft(), 0, rangeBar.getPaddingRight(), 0));
         rangeBarChartView.setPadding(0, 0, 0, 0);
         rangeBar.setSelectionChangeListener(this); // split up chart and bar, so invalidate() will trigger only a single redraw
@@ -145,6 +144,7 @@ public final class MainActivity extends Activity
         ll.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         {
             float dp = getResources().getDisplayMetrics().density;
+            float sp = getResources().getDisplayMetrics().scaledDensity;
             int margins = (int) (16 * dp);
 
             titleView = new TextView(this);
@@ -163,6 +163,7 @@ public final class MainActivity extends Activity
                 chartBubbleView = new ChartBubbleView(this);
                 chartBubbleView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
                 chartBubbleView.setSizes(1.5f * dp, 4 * dp, 2 * dp);
+                chartBubbleView.setTextSizes(14 * sp, 16 * sp, 12 * sp, 8 * sp);
                 chartView.addView(chartBubbleView);
             }
             ll.addView(chartView);
