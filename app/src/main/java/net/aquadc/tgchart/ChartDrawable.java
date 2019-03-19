@@ -516,4 +516,44 @@ public final class ChartDrawable extends Drawable {
         return width / (xEnd - xStart);
     }
 
+    // serious copy-paste
+    float[] getYPositionsAt(int index, float[] dest) {
+        if (dirty) normalize();
+        Chart.Column[] columns = data.columns;
+        int colCnt = columns.length;
+        if (dest == null || dest.length != colCnt) {
+            dest = new float[colCnt];
+        }
+        int length = data.x.values.length;
+
+        double yMin = maxBottom;
+        double yMax = minTop;
+        for (int ci = 0; ci < colCnt; ci++) {
+            if (visible.get(ci)) {
+                Chart.Column column = columns[ci];
+                double min = column.minValue;
+                if (min < yMin) yMin = min;
+                double max = column.maxValue;
+                if (max > yMax) yMax = max;
+            }
+        }
+        double yDiff = yMax - yMin;
+
+        boolean drawNumbers = textSize > 0 && numberPaint != null;
+        int bottomPadding = drawNumbers && xValueFormatter != null ? 2 * textSize : 0;
+
+        int height = height();
+        int chartHeight = height - bottomPadding;
+        float heightFactor = (float) chartHeight / height;
+        for (int i = 0; i < colCnt; i++) {
+            Chart.Column column = columns[i];
+            double colYMax = column.maxValue;
+            double colYDiff = colYMax - column.minValue;
+            float yScale = (float) (colYDiff / yDiff) * heightFactor;
+            float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
+            dest[i] = translateY + normalized[length + i*length + index] * yScale;
+        }
+        return dest;
+    }
+
 }

@@ -21,17 +21,17 @@ public final class ChartBubbleView extends View {
 
     final RoundRectDrawableWithShadow bg;
 
-    private final Paint guidelinePaint;
+    private final Paint paint;
     private final TextPaint textPaint;
-    private final int drawableInsets; // distance between bound and usable inner space
+    private final int bubbleInsets; // distance between bound and usable inner space
 
     public ChartBubbleView(Context context) {
         super(context);
         float dp = getResources().getDisplayMetrics().density;
         bg = new RoundRectDrawableWithShadow(getResources(), ColorStateList.valueOf(Color.WHITE), 8 * dp, 3 * dp, 4 * dp); // TODO: maybe use RoundRectDrawable on 21+
-        guidelinePaint = new Paint();
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        drawableInsets = (int) (16 * dp);
+        bubbleInsets = (int) (16 * dp);
 
         setClickable(true);
         setAlpha(0f); // todo: show and hide bubble on short click
@@ -96,17 +96,20 @@ public final class ChartBubbleView extends View {
         this.yFormatter = y;
     }
 
+    @ColorInt private int guidelineColour;
     public void setGuidelineColour(@ColorInt int guidelineColour) {
-        if (guidelinePaint.getColor() != guidelineColour) {
-            guidelinePaint.setColor(guidelineColour);
-            invalidate();
-        }
+        this.guidelineColour = guidelineColour;
+        invalidate();
     }
 
-    public void setGuidelineThickness(@ColorInt int thickness) {
-        if (guidelinePaint.getStrokeWidth() != thickness) {
-            guidelinePaint.setStrokeWidth(thickness);
-        }
+    private float guidelineThickness;
+    private float dotRadius;
+    private float dotStrokeThickness;
+    public void setSizes(float guidelineThickness, float dotRadius, float dotStrokeThickness) {
+        this.guidelineThickness = guidelineThickness;
+        this.dotRadius = dotRadius;
+        this.dotStrokeThickness = dotStrokeThickness;
+        invalidate();
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
@@ -134,6 +137,7 @@ public final class ChartBubbleView extends View {
     private double[] yValues;
     private String[] formattedYValues; // TODO: use a single SB and slices instead
     private int[] lengths;
+    private float[] yPositions;
     private void drawBubble(Canvas canvas) { // TODO: don't show disabled data
         int width = getWidth() - getPaddingLeft() - getPaddingRight();
         int height = getHeight() - getPaddingTop() - getPaddingBottom();
@@ -157,6 +161,20 @@ public final class ChartBubbleView extends View {
             formattedYValues[i] = sb.toString();
             sb.setLength(0);
         }
+        yPositions = chart.getYPositionsAt(currentXIndex, yPositions);
+
+        int xValueHeight = (int) (1.2f * xValueTextSize);
+        int yValueHeight = (int) (1.5f * yValueTextSize);
+        int yLabelHeight = (int) (1.5f * yLabelTextSize);
+
+        int xPos = (int) chart.getXPositionAt(currentXIndex);
+        int top = height / 16; // todo: could be placed in the most free chart part
+        int bottom = top + /* balloonHeight: */ xValueHeight + yValueHeight + yLabelHeight;
+
+        // draw guideline
+        paint.setColor(guidelineColour);
+        paint.setStrokeWidth(guidelineThickness);
+        canvas.drawLine(xPos, bottom, xPos, height, paint);
 
         // measure
         setupTextPaint(xValueTextSize, xValueColour);
@@ -169,21 +187,23 @@ public final class ChartBubbleView extends View {
             setupTextPaint(yLabelTextSize, column.colour);
             int labelLen = (int) textPaint.measureText(column.name);
             balloonWidth += (lengths[i] = Math.max(valueLen, labelLen)) + yValueHSpacing;
+
+            // draw dots
+            paint.setColor(Color.WHITE);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(xPos, yPositions[i], dotRadius, paint);
+
+            paint.setColor(column.colour);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dotStrokeThickness);
+            canvas.drawCircle(xPos, yPositions[i], dotRadius, paint);
         }
         balloonWidth -= yValueHSpacing; // last spacing is odd
         setupTextPaint(xValueTextSize, xValueColour);
         balloonWidth = Math.max(balloonWidth, (int) textPaint.measureText(formattedXValue));
 
-        int xValueHeight = (int) (1.2f * xValueTextSize);
-        int yValueHeight = (int) (1.5f * yValueTextSize);
-        int yLabelHeight = (int) (1.5f * yLabelTextSize);
-
         // layout
-        int xPos = (int) chart.getXPositionAt(currentXIndex);
-        int top = height / 16;
-        int bottom = top + /* balloonHeight: */ xValueHeight + yValueHeight + yLabelHeight;
-
-        int leftMin = drawableInsets * 9 / 10;
+        int leftMin = bubbleInsets * 9 / 10;
         int rightMax = width - leftMin;
 
         int left = xPos;
@@ -198,12 +218,8 @@ public final class ChartBubbleView extends View {
             right -= diff;
         }
 
-        // TODO: circles & dots
-
-        // draw
-        canvas.drawLine(xPos, bottom, xPos, height, guidelinePaint);
-
-        bg.setBounds(left - drawableInsets, top - drawableInsets, right + drawableInsets, bottom + drawableInsets);
+        // draw bubble
+        bg.setBounds(left - bubbleInsets, top - bubbleInsets, right + bubbleInsets, bottom + bubbleInsets);
         bg.draw(canvas);
 
         setupTextPaint(xValueTextSize, xValueColour);

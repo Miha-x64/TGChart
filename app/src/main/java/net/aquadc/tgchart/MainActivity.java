@@ -81,7 +81,6 @@ public final class MainActivity extends Activity
 
         longFormat = new SimpleDateFormat("E, MMM d", locale);
         chartBubbleView.setChart(bigChart);
-        chartBubbleView.setGuidelineThickness((int) (1.5f * dp));
         chartBubbleView.setTextSizes((int) (14 * sp), (int) (16 * sp), (int) (12 * sp), (int) (8 * sp));
         chartBubbleView.setPadding(0, 0, 0, /* textSize * 2 */ (int) (28 * sp));
         chartBubbleView.setFormatters(longDateFormatter, countFormatter);
@@ -163,6 +162,7 @@ public final class MainActivity extends Activity
             {
                 chartBubbleView = new ChartBubbleView(this);
                 chartBubbleView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                chartBubbleView.setSizes(1.5f * dp, 4 * dp, 2 * dp);
                 chartView.addView(chartBubbleView);
             }
             ll.addView(chartView);
