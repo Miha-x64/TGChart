@@ -400,10 +400,16 @@ public final class ChartDrawable extends Drawable {
         paint.setAlpha(alpha);
         if (numberPaint != null) numberPaint.setAlpha(alpha);
     }
+    @Override public int getAlpha() {
+        return paint.getAlpha();
+    }
 
     @Override public void setColorFilter(@Nullable ColorFilter colorFilter) {
         paint.setColorFilter(colorFilter);
         if (numberPaint != null) numberPaint.setColorFilter(colorFilter);
+    }
+    @Nullable @Override public ColorFilter getColorFilter() {
+        return paint.getColorFilter();
     }
 
     @Override public int getOpacity() {
