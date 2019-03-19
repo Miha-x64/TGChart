@@ -21,4 +21,8 @@ android {
 dependencies {
     implementation 'androidx.annotation:annotation:1.0.2'
     implementation 'androidx.vectordrawable:vectordrawable:1.0.1'
+
+    debugImplementation 'com.github.brianPlummer:tinydancer:0.1.2'
+    releaseImplementation 'com.github.brianPlummer:tinydancer-noop:0.1.2'
+    testImplementation 'com.github.brianPlummer:tinydancer-noop:0.1.2'
 }
