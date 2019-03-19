@@ -198,6 +198,8 @@ public final class ChartBubbleView extends View {
             right -= diff;
         }
 
+        // TODO: circles & dots
+
         // draw
         canvas.drawLine(xPos, bottom, xPos, height, guidelinePaint);
 

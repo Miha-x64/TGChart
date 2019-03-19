@@ -77,31 +77,49 @@ public final class RangeBar extends View {
             touchAt(event.getX());
             return true;
         } else {
+            prevX = Float.NaN;
             return false;
         }
     }
 
-    private void touchAt(float x) { // TODO: dragging the whole window without size changes
-        float dStart = Math.abs(selectionToPx(selectionStart) - x);
-        float dEnd = Math.abs(selectionToPx(selectionEnd) - x);
-        boolean movingLeft = dStart < dEnd;
-        Rect borders = this.windowBorders;
-        int minDistance = 2 * borders.left + 2 * borders.right;
-        int width = getWidth();
-
-        float normalX = movingLeft ? Math.min(x, width - minDistance) : Math.max(x, minDistance);
-        normalX = Math.min(width, Math.max(0, normalX));
-
-        int newSelection = (int) (normalX / width * max);
-        if (movingLeft) {
-            if (selectionStart != newSelection) {
-                setSelectedRangeInternal(newSelection, Math.max(newSelection + minDistance, selectionEnd));
+    private float prevX = Float.NaN;
+    private int handle = 0;
+    private void touchAt(float x) {
+        int width = getInnerWidth();
+        if (Float.isNaN(prevX)) {
+            if (x < selectionToPx(selectionStart) + windowBorders.left + windowBorders.left) { // dragging left border
+                handle = -1;
+            } else if (x > selectionToPx(selectionEnd) - windowBorders.right - windowBorders.right) { // dragging right border
+                handle = 1;
+            } else { // moving the whole window
+                handle = 0;
             }
         } else {
-            if (selectionEnd != newSelection) {
-                setSelectedRangeInternal(Math.min(newSelection - minDistance, selectionStart), newSelection);
+            Rect borders = this.windowBorders;
+            int minWindowSize = 2 * borders.left + 2 * borders.right;
+
+            if (handle == 0) {
+                int distance = (int) ((x - prevX) / width * max);
+                if (selectionStart + distance < 0) {
+                    distance = -selectionStart;
+                } else if (selectionEnd + distance > max) {
+                    distance = max - selectionEnd;
+                }
+                setSelectedRangeInternal(selectionStart + distance, selectionEnd + distance);
+            } else {
+                boolean left = handle == -1;
+                int newSelection = selection(left, x, minWindowSize);
+                setSelectedRangeInternal(left ? newSelection : selectionStart, left ? selectionEnd : newSelection);
             }
         }
+        prevX = x;
+    }
+    private int selection(boolean left, float x, int minDistance) {
+        x -= getPaddingLeft();
+        int width = getInnerWidth();
+        float normalX = left ? Math.min(x, width - minDistance) : Math.max(x, minDistance);
+        normalX = Math.min(width, Math.max(0, normalX));
+        return (int) (normalX / width * max);
     }
 
     public interface SelectionChangeListener {
@@ -162,11 +180,12 @@ public final class RangeBar extends View {
         paint.setColor(dimColour);
         float leftDimEnd = selectionToPx(selectionStart);
         if (selectionStart > 0) {
-            canvas.drawRect(0, 0, leftDimEnd, height, paint);
+            canvas.drawRect(getPaddingLeft(), 0, leftDimEnd, height, paint);
         }
         float rightDimStart = selectionToPx(selectionEnd);
+        int rightPad = getPaddingRight();
         if (selectionEnd < max - 1) {
-            canvas.drawRect(rightDimStart, 0, getWidth(), height, paint);
+            canvas.drawRect(rightDimStart, 0, getWidth() - rightPad, height, paint);
         }
 
         paint.setColor(windowBorderColour);
@@ -182,7 +201,11 @@ public final class RangeBar extends View {
     // common util
 
     private float selectionToPx(int selectionPerMille) {
-        return getWidth() * selectionPerMille / max;
+        return getPaddingLeft() + getInnerWidth() * selectionPerMille / max;
+    }
+
+    private int getInnerWidth() {
+        return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
 }

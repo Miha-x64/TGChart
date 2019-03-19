@@ -47,7 +47,7 @@ public final class ChartDrawable extends Drawable {
 
     @ColorInt private int guidelineColour = Color.TRANSPARENT;
 
-    public ChartDrawable(Chart data, @Px int chartThickness) {
+    public ChartDrawable(Chart data, @Px int chartThickness) { // TODO: sampling!
         this.data = data;
         this.chartThickness = chartThickness;
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -121,6 +121,10 @@ public final class ChartDrawable extends Drawable {
         float xScale = width / (xEnd - xStart);
         float translateX = -xStart * xScale;
 
+        canvas.save();
+        canvas.translate(getBounds().left, getBounds().top);
+        canvas.clipRect(0, 0, width, height());
+
         // draw guidelines first
         boolean drawGuidelines = guidelineThickness > 0 && (guidelineColour & 0xFF_000000) != 0;
         boolean drawNumbers = textSize > 0 && numberPaint != null;
@@ -175,6 +179,7 @@ public final class ChartDrawable extends Drawable {
                 canvas.restore();
             }
         }
+        canvas.restore();
 
         if (DEBUG) {
             int pairs = lastVisibleIdx - firstVisibleIdx;
@@ -249,7 +254,7 @@ public final class ChartDrawable extends Drawable {
             }
         }
     }
-    private void drawXValues(Canvas canvas, float xScale, float translateX) { // todo: don't clip first&last; animate (dis)appearance
+    private void drawXValues(Canvas canvas, float xScale, float translateX) { // todo: don't clip first&last; animate (dis)appearance; rightmost ones disappear instead of sliding
         int length = data.x.values.length;
 
         // let's transform millis to [0; xValues.length]. For monotone Xes, this will give labels exactly under nodes;

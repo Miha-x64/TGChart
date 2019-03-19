@@ -10,6 +10,7 @@ import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -86,8 +87,9 @@ public final class MainActivity extends Activity
         chartBubbleView.setFormatters(longDateFormatter, countFormatter);
 
         smallChart = new ChartDrawable(chart, Math.max(1, (int) dp));
-        ViewCompat.setBackground(rangeBarChartView, smallChart); // split up chart and bar, so invalidate()
-        rangeBar.setSelectionChangeListener(this);               // will trigger only a single redraw
+        ViewCompat.setBackground(rangeBarChartView, new InsetDrawable(smallChart, rangeBar.getPaddingLeft(), 0, rangeBar.getPaddingRight(), 0));
+        rangeBarChartView.setPadding(0, 0, 0, 0);
+        rangeBar.setSelectionChangeListener(this); // split up chart and bar, so invalidate() will trigger only a single redraw
 
         columnChooser.setData(chart.columns, this);
 
@@ -167,7 +169,7 @@ public final class MainActivity extends Activity
 
             rangeBarChartView = new FrameLayout(this);
             LinearLayout.LayoutParams rangeBarChartLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (48 * dp));
-            rangeBarChartLp.setMargins(margins, margins, margins, margins);
+            rangeBarChartLp.setMargins(0, margins, 0, margins);
             rangeBarChartView.setLayoutParams(rangeBarChartLp);
             {
                 rangeBar = new RangeBar(this);
@@ -176,6 +178,7 @@ public final class MainActivity extends Activity
                 int hwBorder = (int) (4 * dp);
                 int vwBorder = (int) (2 * dp);
                 rangeBar.setWindowBorders(hwBorder, vwBorder, hwBorder, vwBorder);
+                rangeBar.setPadding(margins, 0, margins, 0); // it's easier to touch a view when it handles touches on its paddings
                 rangeBarChartView.addView(rangeBar);
             }
             ll.addView(rangeBarChartView);
