@@ -28,14 +28,13 @@ import androidx.core.view.ViewCompat;
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
 import com.codemonkeylabs.fpslibrary.TinyDancer;
 
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 
 public final class MainActivity extends Activity
-        implements ChartDrawable.ValueFormatter, RangeBar.SelectionChangeListener, AdapterView.OnItemClickListener {
+        implements RangeBar.SelectionChangeListener, AdapterView.OnItemClickListener {
 
     private static Chart chart;
 
@@ -69,20 +68,21 @@ public final class MainActivity extends Activity
             chart = Chart.readTestChart(this); // TODO: mv to bg
         }
 
-        // TODO: move numbers to createContentView()
         Locale locale = getResources().getConfiguration().locale;
-        shortFormat = new SimpleDateFormat("MMM d", locale);
+        Date sharedDate = new Date();
+        ChartDrawable.ValueFormatter shortFormat = new DateFormatter(sharedDate, new SimpleDateFormat("MMM d", locale));
+        ChartDrawable.ValueFormatter longFormat = new DateFormatter(sharedDate, new SimpleDateFormat("E, MMM d", locale));
+
         float dp = getResources().getDisplayMetrics().density;
         float sp = getResources().getDisplayMetrics().scaledDensity;
         bigChart = new ChartDrawable(chart, 2.5f * dp);
-        bigChart.configureGuidelines(1.5f * dp, 4 * dp, 14 * sp, this, countFormatter);
+        bigChart.configureGuidelines(1.5f * dp, 4 * dp, 14 * sp, shortFormat, countFormatter);
         bigChart.occupyEvenIfEmptyY(Double.MIN_VALUE, 0);
         ViewCompat.setBackground(chartView, bigChart);
 
-        longFormat = new SimpleDateFormat("E, MMM d", locale);
         chartBubbleView.setChart(bigChart);
         chartBubbleView.setPadding(0, 0, 0, /* textSize * 2 */ (int) (28 * sp));
-        chartBubbleView.setFormatters(longDateFormatter, countFormatter);
+        chartBubbleView.setFormatters(longFormat, countFormatter);
 
         smallChart = new ChartDrawable(chart, Math.max(1, dp));
         ViewCompat.setBackground(rangeBarChartView, new InsetDrawable(smallChart, rangeBar.getPaddingLeft(), 0, rangeBar.getPaddingRight(), 0));
@@ -96,19 +96,6 @@ public final class MainActivity extends Activity
         }
         applyColours(colourMode);
     }
-    private final Date date = new Date();
-    private DateFormat shortFormat;
-    @Override public void formatValueInto(StringBuilder sb, double value) { // TODO: dedupe
-        date.setTime((long) value);
-        sb.append(shortFormat.format(date)); // DateFormat supports appending only into StringBuffer and thus sucks
-    }
-    DateFormat longFormat;
-    private final ChartDrawable.ValueFormatter longDateFormatter = new ChartDrawable.ValueFormatter() {
-        @Override public void formatValueInto(StringBuilder sb, double value) {
-            date.setTime((long) value);
-            sb.append(longFormat.format(date));
-        }
-    };
     @Override public void onSelectedRangeChanged(int selectionStart, int selectionEnd) {
         bigChart.setVisibleRange(selectionStart, selectionEnd);
 //        chartExtrasView.setVisibleRange(selectionStart, selectionEnd);
