@@ -200,8 +200,9 @@ public final class ChartDrawable extends Drawable {
     private StringBuilder numberSb;
     private TextPaint numberPaint;
     private void drawGuidelinesOrNumbers(Canvas canvas, double yMin, double yMax, boolean drawGuidelines, boolean drawNumbers, int bottomPadding) {
+        int height = height() - bottomPadding;
         double yDiff = yMax - yMin;
-        double step = yDiff / 5; // heuristic: aim for avg. 5 guidelines fixme: check available height instead
+        double step = yDiff / height * 3 * textSize; // control the density of these numbers
         if (step != 0) {
             int exp = 0;
             while (step >= 10) {
@@ -232,7 +233,6 @@ public final class ChartDrawable extends Drawable {
             double guideline = roundStep * Math.ceil(yMin / roundStep); // first guideline
 
             int width = width();
-            int height = height() - bottomPadding;
             paint.setColor(guidelineColour);
             paint.setStrokeWidth(guidelineThickness);
             float lineOffset = guidelineThickness / 2; // ugly hack for line at y=0 (y=inclusiveHeight) to be fully visible
