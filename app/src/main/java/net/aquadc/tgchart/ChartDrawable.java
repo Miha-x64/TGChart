@@ -11,7 +11,6 @@ import android.text.TextPaint;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.Px;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -254,12 +253,12 @@ public final class ChartDrawable extends Drawable {
             }
         }
     }
-    private void drawXValues(Canvas canvas, float xScale, float translateX) { // todo: don't clip first&last; animate (dis)appearance; rightmost ones disappear instead of sliding
+    private void drawXValues(Canvas canvas, float xScale, float translateX) { // todo: animate (dis)appearance
         int length = data.x.values.length;
 
         // let's transform millis to [0; xValues.length]. For monotone Xes, this will give labels exactly under nodes;
         // for non-monotone Xes these values cannot be used as array indices — still using binary search instead.
-        float firstVisibleX = firstVisibleXPerMille * length / 1000f;
+        float firstVisibleX = firstVisibleXPerMille * length / 1000f; // [0; length)
         float firstInvisibleX = firstInvisibleXPerMille * length / 1000f;
 
         float visibleXValues = firstInvisibleX - firstVisibleX;
@@ -273,7 +272,7 @@ public final class ChartDrawable extends Drawable {
         // find sample size where all texts can be fit
         while (true) { // try sample sizes until we find a suitable one
             float textWidthPx = (float) textLengthX * xWidthPx; // will be >= 32 for the first time
-            if (fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN)) {
+            if (fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN, Float.NaN)) {
                 break;
             } else {
                 textLengthX *= 2;
@@ -284,21 +283,19 @@ public final class ChartDrawable extends Drawable {
         float textY = height() - textIndent;
         // now draw!
         // fixme: measuring and allocating formatted data for two times
-        canvas.save();
-        canvas.translate(translateX, 0);
-        fitTexts(canvas, firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, xScale, textY);
-        canvas.restore();
+        fitTexts(canvas, firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, translateX, xScale, textY);
     }
     private boolean fitTexts(Canvas canvas, float firstVisibleX, float firstInvisibleX, int textLengthX,
                              /*only for measuring*/ float maxTextWidth,
-                             /*only for drawing*/ float xScale, float y) {
+                             /*only for drawing*/ float translateX, float xScale, float y) {
         double[] xValues = data.x.values;
         int length = xValues.length;
         int width = width();
 
-        int visibleX = (int) firstVisibleX / length * length;
-        while (visibleX < firstInvisibleX) {
-            float xPos = width * visibleX / length;
+        int firstVisibleXRnd = (int) firstVisibleX / length * length;
+        int firstInvisibleXRnd = (int) firstInvisibleX + textLengthX;
+        for (int x = firstVisibleXRnd; x < firstInvisibleXRnd; x += textLengthX) {
+            float xPos = width * x / length;
             int xIdx = indexOfClosest(normalized, 0, length, xPos);
             xPos = normalized[xIdx]; // fixme: this is a workaround for a precision issue probably caused by my hands
 
@@ -311,12 +308,12 @@ public final class ChartDrawable extends Drawable {
                     return false; // todo: should return a multiplier for nextWidth, e. g. 2, 4, 8, etc
                 }
             } else {
-                canvas.drawText(numberSb, 0, numberSbLen, xPos * xScale - textWidth / 2, y, numberPaint);
-//                canvas.drawLine(xPos * xScale, height() - 100, xPos * xScale, height(), numberPaint); // debug number placements
+                float xOnScreen = xPos * xScale + translateX;
+                float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
+                canvas.drawText(numberSb, 0, numberSbLen, xOnScreen + xq * textWidth, y, numberPaint);
+                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
                 numberSb.setLength(0);
             }
-
-            visibleX += textLengthX;
         }
         return true;
     }
