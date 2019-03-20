@@ -458,19 +458,19 @@ public final class ChartDrawable extends Drawable {
         void formatValueInto(StringBuilder sb, double value);
     }
 
-    // shortcust for ChartExtrasView
+    // shortcuts for ChartExtrasView
 
     int getIndexAt(float xPos) {
         if (dirty) normalize();
 
-        float scaledX = xPos / xScale();
+        float scaledX = (xPos - translateX()) / xScale();
         int length = data.x.values.length;
         return indexOfClosest(normalized, 0, length, scaledX);
     }
     float getXPositionAt(int index) {
         if (dirty) normalize();
 
-        return normalized[index] * xScale();
+        return normalized[index] * xScale() + translateX();
     }
     double getXValueAt(int index) {
         return data.x.values[index];
@@ -493,6 +493,12 @@ public final class ChartDrawable extends Drawable {
         float xStart = width * firstVisibleXPerMille / 1000f;
         float xEnd = width * firstInvisibleXPerMille / 1000f;
         return width / (xEnd - xStart);
+    }
+    private float translateX() {
+        int width = width();
+        float xStart = width * firstVisibleXPerMille / 1000f; // [0; width] currently visible
+        float xScale = xScale();
+        return -xStart * xScale;
     }
 
     // serious copy-paste
