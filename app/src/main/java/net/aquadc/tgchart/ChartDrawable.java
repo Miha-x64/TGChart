@@ -271,10 +271,12 @@ public final class ChartDrawable extends Drawable {
         // find sample size where all texts can be fit
         while (true) { // try sample sizes until we find a suitable one
             float textWidthPx = (float) textLengthX * xWidthPx; // will be >= 32 for the first time
-            if (fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN, Float.NaN)) {
+            int requiredSpace = fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN, Float.NaN);
+            if (requiredSpace == 1) {
                 break;
             } else {
                 textLengthX *= 2;
+                // continue: we may encounter a longer text on the next pass
             }
         }
         textLengthX *= 2; // keep the distance!
@@ -284,7 +286,11 @@ public final class ChartDrawable extends Drawable {
         // fixme: measuring and allocating formatted data for two times
         fitTexts(canvas, firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, translateX, xScale, textY);
     }
-    private boolean fitTexts(Canvas canvas, float firstVisibleX, float firstInvisibleX, int textLengthX,
+
+    /**
+     * @return how many times bigger {@param maxTextWidth} should be
+     */
+    private int fitTexts(Canvas canvas, float firstVisibleX, float firstInvisibleX, int textLengthX,
                              /*only for measuring*/ float maxTextWidth,
                              /*only for drawing*/ float translateX, float xScale, float y) {
         double[] xValues = data.x.values;
@@ -293,10 +299,12 @@ public final class ChartDrawable extends Drawable {
 
         int firstVisibleXRnd = (int) firstVisibleX / length * length;
         int firstInvisibleXRnd = (int) firstInvisibleX + textLengthX;
-        for (int x = firstVisibleXRnd; x < firstInvisibleXRnd; x += textLengthX) {
+        int last = (int) Math.ceil((firstInvisibleXRnd - firstVisibleXRnd) / (float) textLengthX) - 1;
+        for (int i = 0; i <= last; i++) {
+            int x = firstVisibleXRnd + i * textLengthX;
             float xPos = width * x / length;
             int xIdx = indexOfClosest(normalized, 0, length, xPos);
-            xPos = normalized[xIdx]; // fixme: this is a workaround for a precision issue probably caused by my hands
+//            xPos = normalized[xIdx]; // fixme: we seem to have a precision issue; try comparing xPos with normalized[xIdx]
 
             xValueFormatter.formatValueInto(numberSb, xValues[xIdx]);
             int numberSbLen = numberSb.length();
@@ -304,7 +312,7 @@ public final class ChartDrawable extends Drawable {
             if (canvas == null) { // dry run just for measurement
                 numberSb.setLength(0);
                 if (textWidth > maxTextWidth) {
-                    return false; // todo: should return a multiplier for nextWidth, e. g. 2, 4, 8, etc
+                    return Math.max(2, Integer.highestOneBit((int) Math.ceil(textWidth / maxTextWidth)));
                 }
             } else {
                 float xOnScreen = xPos * xScale + translateX;
@@ -314,7 +322,7 @@ public final class ChartDrawable extends Drawable {
                 numberSb.setLength(0);
             }
         }
-        return true;
+        return 1;
     }
 
     private void normalize() {
