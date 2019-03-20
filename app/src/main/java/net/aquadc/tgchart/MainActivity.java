@@ -11,6 +11,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -203,12 +204,18 @@ public final class MainActivity extends Activity
 
         getWindow().setBackgroundDrawable(addColorDrawableTransit(set, null, this.colourMode.sheet, colourMode.sheet));
 
-        final TransitionDrawable shadowDrawable; {
-            GradientDrawable toShadow = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{colourMode.shadow, colourMode.window});
-            shadowDrawable = anim ? new TransitionDrawable(new Drawable[]{
-                    new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{this.colourMode.shadow, this.colourMode.window}), toShadow,
-            }) : null;
-            ViewCompat.setBackground(sheetShadow, anim ? shadowDrawable : toShadow);
+        final LayerDrawable shadowDrawable; {
+            GradientDrawable toShadow = createShadow(colourMode);
+            Drawable bg;
+            if (anim) {
+                shadowDrawable = new LayerDrawable(new Drawable[]{ createShadow(this.colourMode), toShadow });
+                bg = shadowDrawable;
+                set.playTogether(ObjectAnimator.ofInt(toShadow, "alpha", 0, 255));
+            } else {
+                shadowDrawable = null;
+                bg = toShadow;
+            }
+            ViewCompat.setBackground(sheetShadow, bg);
         }
 
         ViewCompat.setBackground(windowBackground, addColorDrawableTransit(set, windowBackground.getBackground(), this.colourMode.window, colourMode.window));
@@ -228,7 +235,6 @@ public final class MainActivity extends Activity
             finishAnim();
         } else {
             set.setDuration(300);
-            shadowDrawable.startTransition(300); // fixme: this transition sucks
             set.addListener(new AnimatorListenerAdapter() {
                 @Override public void onAnimationEnd(Animator animation) {
                     ViewCompat.setBackground(sheetShadow, shadowDrawable.getDrawable(1));
@@ -238,7 +244,9 @@ public final class MainActivity extends Activity
             set.start();
         }
     }
-
+    private GradientDrawable createShadow(ColourMode colourMode) {
+        return new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{colourMode.shadow, colourMode.window});
+    }
     private void finishAnim() {
         columnChooser.setSelector(Util.drawableFromTheme(getApplicationContext(), colourMode.baseTheme, android.R.attr.selectableItemBackground));
         bigChart.setGuidelineColour(colourMode.guideline);
@@ -246,7 +254,6 @@ public final class MainActivity extends Activity
         chartBubbleView.setGuidelineColour(colourMode.guideline);
         chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
     }
-
     private static <T> void addArgbAnim(AnimatorSet set,
                                         T target, Property<T, Integer> property, @ColorInt int from, @ColorInt int to) {
         if (set == null) property.set(target, to);
