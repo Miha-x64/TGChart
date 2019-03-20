@@ -3,7 +3,9 @@ package net.aquadc.tgchart;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -15,17 +17,15 @@ import androidx.annotation.Nullable;
 import java.util.Arrays;
 import java.util.BitSet;
 
+
 public final class ChartDrawable extends Drawable {
 
     private static final boolean DEBUG = false;
 
     final Chart data; // package-private shortcut for ChartExtrasView
 
-    // paths are cool & shit, but cannot be drawn partially
-    /*private float[] normalizedXValues;
-    private Path[] paths;
-    private Path drawPath;
-    private Matrix matrix;*/
+    private Path path;
+    private Matrix matrix;
 
     private final float chartThickness;
 
@@ -91,7 +91,7 @@ public final class ChartDrawable extends Drawable {
 
         // preparations
         int width = width();
-        float[] normalized = this.normalized/*normalizedXValues*/;
+        float[] normalized = this.normalized;
 
         int length = data.x.values.length;
         float xStart = width * firstVisibleXPerMille / 1000f; // [0; width] currently visible
@@ -160,20 +160,19 @@ public final class ChartDrawable extends Drawable {
 
                 int yi = (ci + 1) * length;
                 yi += firstVisibleIdx; // skip left invisible part
-                for (int xi = firstVisibleIdx; xi < lastVisibleIdx; ) {
-                    canvas.drawLine( // fixme: ugly line joins
-                            xScale * normalized[xi++], yScale * normalized[yi++],
-                            xScale * normalized[xi], yScale * normalized[yi],
-                            paint
-                    );
+                // paths are cool & shit, but cannot be drawn partially, so let's fill 'em on demand
+                // drawLine is OK but can't draw good line joins
+
+                int xi = firstVisibleIdx;
+                path.moveTo(normalized[xi++], normalized[yi++]);
+                while (xi <= lastVisibleIdx) {
+                    path.lineTo(normalized[xi++], normalized[yi++]);
                 }
                 // don't mind right invisible part
-
-                /*matrix.setScale(xScale, yScale);
-                matrix.postTranslate(0, translateY);
-                Path path = paths[ci];
-                path.transform(matrix, drawPath);
-                canvas.drawPath(drawPath, paint);*/
+                matrix.setScale(xScale, yScale);
+                path.transform(matrix);
+                canvas.drawPath(path, paint);
+                path.rewind();
 
                 canvas.restore();
             }
@@ -311,7 +310,7 @@ public final class ChartDrawable extends Drawable {
                 float xOnScreen = xPos * xScale + translateX;
                 float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
                 canvas.drawText(numberSb, 0, numberSbLen, xOnScreen + xq * textWidth, y, numberPaint);
-                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
+//                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
                 numberSb.setLength(0);
             }
         }
@@ -330,25 +329,20 @@ public final class ChartDrawable extends Drawable {
         int colCount = columns.length;
         if (normalized == null) {
             normalized = new float[length * (colCount + 1)];
-        }
-        /*if (normalizedXValues == null) {
-            normalizedXValues = new float[length];
-            paths = new Path[colCount];
-            drawPath = new Path();
+            path = new Path();
             matrix = new Matrix();
-        }*/
+        }
 
         int width = width();
         int height = height();
         float[] normalized = this.normalized;
-//        float[] normalizedXValues = this.normalizedXValues;
 
         int i = 0;
         {
             double xMin = xCol.minValue;
             double xDiff = xCol.maxValue - xMin;
             for (; i < length; i++) {
-                normalized/*normalizedXValues*/[i] = (float) (((xValues[i] - xMin) / xDiff) * width);
+                normalized[i] = (float) (((xValues[i] - xMin) / xDiff) * width);
             }
         }
 
@@ -361,24 +355,6 @@ public final class ChartDrawable extends Drawable {
                 normalized[i++] = v;
             }
         }
-
-        /*for (int c = 0; c < colCount; c++) {
-            Path p = paths[c];
-            if (p == null) {
-                paths[c] = p = new Path();
-            } else {
-                p.reset();
-            }
-            Chart.Column column = columns[c];
-            double yMin = column.minValue;
-            double yDiff = column.maxValue - yMin;
-            double[] values = column.values;
-            p.moveTo(normalizedXValues[0], (float) ((1 - ((values[0] - yMin) / yDiff)) * height));
-            for (int ci = 1; ci < length; ci++) { // normalize & also flip to our coordinates, where y=0 means 'top'
-                float v = (float) ((1 - ((values[ci] - yMin) / yDiff)) * height);
-                p.lineTo(normalizedXValues[ci], v);
-            }
-        }*/
 
         dirty = false;
     }
