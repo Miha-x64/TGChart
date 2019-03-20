@@ -268,9 +268,11 @@ public final class ChartDrawable extends Drawable {
         int highest = Integer.highestOneBit(textLengthX);
         textLengthX = highest + (textLengthX > highest ? highest : 0); // and round it up to a power of two
 
+        if (texts == null) texts = new StringBuilder();
         // find sample size where all texts can be fit
         while (true) { // try sample sizes until we find a suitable one
             float textWidthPx = (float) textLengthX * xWidthPx; // will be >= 32 for the first time
+            texts.setLength(0);
             int requiredSpace = fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN, Float.NaN);
             if (requiredSpace == 1) {
                 break;
@@ -283,10 +285,12 @@ public final class ChartDrawable extends Drawable {
 
         float textY = height() - textIndent;
         // now draw!
-        // fixme: measuring and allocating formatted data for two times
         fitTexts(canvas, firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, translateX, xScale, textY);
     }
 
+    private StringBuilder texts;
+    private int[] textLengths;
+    private float[] measuredTexts;
     /**
      * @return how many times bigger {@param maxTextWidth} should be
      */
@@ -299,28 +303,38 @@ public final class ChartDrawable extends Drawable {
 
         int firstVisibleXRnd = (int) firstVisibleX / length * length;
         int firstInvisibleXRnd = (int) firstInvisibleX + textLengthX;
-        int last = (int) Math.ceil((firstInvisibleXRnd - firstVisibleXRnd) / (float) textLengthX) - 1;
+        int count = (int) Math.ceil((firstInvisibleXRnd - firstVisibleXRnd) / (float) textLengthX);
+        if (measuredTexts == null || measuredTexts.length < count) {
+            measuredTexts = new float[count];
+            textLengths = new int[count];
+        }
+        int last = count - 1;
+        int sbOffset = 0;
         for (int i = 0; i <= last; i++) {
             int x = firstVisibleXRnd + i * textLengthX;
             float xPos = width * x / length;
             int xIdx = indexOfClosest(normalized, 0, length, xPos);
 //            xPos = normalized[xIdx]; // fixme: we seem to have a precision issue; try comparing xPos with normalized[xIdx]
 
-            xValueFormatter.formatValueInto(numberSb, xValues[xIdx]);
-            int numberSbLen = numberSb.length();
-            float textWidth = numberPaint.measureText(numberSb, 0, numberSbLen);
+            int textLen;
             if (canvas == null) { // dry run just for measurement
-                numberSb.setLength(0);
+                xValueFormatter.formatValueInto(texts, xValues[xIdx]);
+                textLen = texts.length() - sbOffset;
+                textLengths[i] = textLen;
+
+                float textWidth = numberPaint.measureText(texts, sbOffset, sbOffset + textLen);
                 if (textWidth > maxTextWidth) {
                     return Math.max(2, Integer.highestOneBit((int) Math.ceil(textWidth / maxTextWidth)));
                 }
+                measuredTexts[i] = textWidth;
             } else {
                 float xOnScreen = xPos * xScale + translateX;
                 float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
-                canvas.drawText(numberSb, 0, numberSbLen, xOnScreen + xq * textWidth, y, numberPaint);
+                textLen = textLengths[i];
+                canvas.drawText(texts, sbOffset, sbOffset + textLen, xOnScreen + xq * measuredTexts[i], y, numberPaint);
 //                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
-                numberSb.setLength(0);
             }
+            sbOffset += textLen;
         }
         return 1;
     }
