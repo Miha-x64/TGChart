@@ -509,7 +509,7 @@ public final class ChartDrawable extends Drawable {
             dest = new double[length];
         }
         for (int i = 0; i < length; i++) {
-            dest[i] = cols[i].values[index];
+            dest[i] = visible.get(i) ? cols[i].values[index] : Double.NaN;
         }
         return dest;
     }
@@ -552,12 +552,16 @@ public final class ChartDrawable extends Drawable {
         int chartHeight = height - bottomPadding;
         float heightFactor = (float) chartHeight / height;
         for (int i = 0; i < colCnt; i++) {
-            Chart.Column column = columns[i];
-            double colYMax = column.maxValue;
-            double colYDiff = colYMax - column.minValue;
-            float yScale = (float) (colYDiff / yDiff) * heightFactor;
-            float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
-            dest[i] = translateY + normalized[length + i*length + index] * yScale;
+            if (visible.get(i)) {
+                Chart.Column column = columns[i];
+                double colYMax = column.maxValue;
+                double colYDiff = colYMax - column.minValue;
+                float yScale = (float) (colYDiff / yDiff) * heightFactor;
+                float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
+                dest[i] = translateY + normalized[length + i * length + index] * yScale;
+            } else {
+                dest[i] = Float.NaN;
+            }
         }
         return dest;
     }

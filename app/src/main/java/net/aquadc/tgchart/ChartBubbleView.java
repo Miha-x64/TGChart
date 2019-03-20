@@ -138,7 +138,7 @@ public final class ChartBubbleView extends View {
     private String[] formattedYValues; // TODO: use a single SB and slices instead
     private int[] lengths;
     private float[] yPositions;
-    private void drawBubble(Canvas canvas) { // TODO: don't show disabled data
+    private void drawBubble(Canvas canvas) {
         int width = getWidth() - getPaddingLeft() - getPaddingRight();
         int height = getHeight() - getPaddingTop() - getPaddingBottom();
 
@@ -157,9 +157,14 @@ public final class ChartBubbleView extends View {
             lengths = new int[yValueCount];
         }
         for (int i = 0; i < yValueCount; i++) {
-            yFormatter.formatValueInto(sb, yValues[i]);
-            formattedYValues[i] = sb.toString();
-            sb.setLength(0);
+            double yValue = yValues[i];
+            if (Double.isNaN(yValue)) {
+                formattedYValues[i] = null;
+            } else {
+                yFormatter.formatValueInto(sb, yValue);
+                formattedYValues[i] = sb.toString();
+                sb.setLength(0);
+            }
         }
         yPositions = chart.getYPositionsAt(currentXIndex, yPositions);
 
@@ -181,22 +186,25 @@ public final class ChartBubbleView extends View {
         int balloonWidth = 0;
         Chart.Column[] columns = chart.data.columns;
         for (int i = 0; i < columns.length; i++) {
-            Chart.Column column = columns[i];
-            setupTextPaint(yValueTextSize, column.colour);
-            int valueLen = (int) textPaint.measureText(formattedYValues[i]);
-            setupTextPaint(yLabelTextSize, column.colour);
-            int labelLen = (int) textPaint.measureText(column.name);
-            balloonWidth += (lengths[i] = Math.max(valueLen, labelLen)) + yValueHSpacing;
+            float yPosition = yPositions[i];
+            if (!Float.isNaN(yPosition)) { // i. e. the col is visible
+                Chart.Column column = columns[i];
+                setupTextPaint(yValueTextSize, column.colour);
+                int valueLen = (int) textPaint.measureText(formattedYValues[i]);
+                setupTextPaint(yLabelTextSize, column.colour);
+                int labelLen = (int) textPaint.measureText(column.name);
+                balloonWidth += (lengths[i] = Math.max(valueLen, labelLen)) + yValueHSpacing;
 
-            // draw dots
-            paint.setColor(bg.getColor());
-            paint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(xPos, yPositions[i], dotRadius, paint);
+                // draw dots
+                paint.setColor(bg.getColor());
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawCircle(xPos, yPosition, dotRadius, paint);
 
-            paint.setColor(column.colour);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dotStrokeThickness);
-            canvas.drawCircle(xPos, yPositions[i], dotRadius, paint);
+                paint.setColor(column.colour);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dotStrokeThickness);
+                canvas.drawCircle(xPos, yPosition, dotRadius, paint);
+            }
         }
         balloonWidth -= yValueHSpacing; // last spacing is odd
         setupTextPaint(xValueTextSize, xValueColour);
@@ -226,12 +234,15 @@ public final class ChartBubbleView extends View {
         canvas.drawText(formattedXValue, left, top + xValueHeight, textPaint);
         int currentLeft = left;
         for (int i = 0; i < columns.length; i++) {
-            Chart.Column column = columns[i];
-            setupTextPaint(yValueTextSize, column.colour);
-            canvas.drawText(formattedYValues[i], currentLeft, top + xValueHeight + yValueHeight, textPaint);
-            setupTextPaint(yLabelTextSize, column.colour);
-            canvas.drawText(column.name, currentLeft, top + xValueHeight + yValueHeight + yLabelHeight, textPaint);
-            currentLeft += lengths[i] + yValueHSpacing;
+            String formattedYValue = formattedYValues[i];
+            if (formattedYValue != null) { // the col is visible
+                Chart.Column column = columns[i];
+                setupTextPaint(yValueTextSize, column.colour);
+                canvas.drawText(formattedYValue, currentLeft, top + xValueHeight + yValueHeight, textPaint);
+                setupTextPaint(yLabelTextSize, column.colour);
+                canvas.drawText(column.name, currentLeft, top + xValueHeight + yValueHeight + yLabelHeight, textPaint);
+                currentLeft += lengths[i] + yValueHSpacing;
+            }
         }
     }
     private void setupTextPaint(float size, @ColorInt int colour) {
