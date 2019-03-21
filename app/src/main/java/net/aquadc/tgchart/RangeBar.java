@@ -109,6 +109,7 @@ public final class RangeBar extends View {
             } else {
                 boolean left = handle == -1;
                 int newSelection = selection(left, x, minWindowSize);
+                newSelection = left ? Math.min(selectionEnd-minWindowSize, newSelection) : Math.max(selectionStart+minWindowSize, newSelection);
                 setSelectedRangeInternal(left ? newSelection : selectionStart, left ? selectionEnd : newSelection);
             }
         }
