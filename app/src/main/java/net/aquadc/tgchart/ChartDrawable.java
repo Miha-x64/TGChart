@@ -282,6 +282,7 @@ public final class ChartDrawable extends Drawable {
             }
         }
         textLengthX *= 2; // keep the distance!
+        if (textLengthX == 0) textLengthX = 1;
 
         float textY = height() - textIndent;
         // now draw!
@@ -304,10 +305,7 @@ public final class ChartDrawable extends Drawable {
         int firstVisibleXRnd = (int) firstVisibleX / length * length;
         int firstInvisibleXRnd = (int) firstInvisibleX + textLengthX;
         int count = (int) Math.ceil((firstInvisibleXRnd - firstVisibleXRnd) / (float) textLengthX);
-        if (measuredTexts == null || measuredTexts.length < count) {
-            measuredTexts = new float[count];
-            textLengths = new int[count];
-        }
+
         int last = count - 1;
         int sbOffset = 0;
         for (int i = 0; i <= last; i++) {
@@ -320,12 +318,19 @@ public final class ChartDrawable extends Drawable {
             if (canvas == null) { // dry run just for measurement
                 xValueFormatter.formatValueInto(texts, xValues[xIdx]);
                 textLen = texts.length() - sbOffset;
-                textLengths[i] = textLen;
 
                 float textWidth = numberPaint.measureText(texts, sbOffset, sbOffset + textLen);
                 if (textWidth > maxTextWidth) {
                     return Math.max(2, Integer.highestOneBit((int) Math.ceil(textWidth / maxTextWidth)));
                 }
+
+                // measure & try return first; allocate then
+                if (measuredTexts == null || measuredTexts.length < count) {
+                    measuredTexts = new float[count];
+                    textLengths = new int[count];
+                }
+
+                textLengths[i] = textLen;
                 measuredTexts[i] = textWidth;
             } else {
                 float xOnScreen = xPos * xScale + translateX;
