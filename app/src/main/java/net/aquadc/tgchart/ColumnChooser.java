@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckedTextView;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import androidx.annotation.ColorInt;
@@ -74,11 +75,14 @@ final class ColumnChooser extends ListView {
             return ((ChooserAdapter) object.getAdapter()).textColor;
         }
         @Override public void set(ColumnChooser object, Integer value) {
-            int colour = value;
-            for (int i = 0, size = object.getChildCount(); i < size; i++) {
-                ((TextView) object.getChildAt(i)).setTextColor(colour);
+            ListAdapter adapter = object.getAdapter();
+            if (adapter != null) {
+                int colour = value;
+                for (int i = 0, size = object.getChildCount(); i < size; i++) {
+                    ((TextView) object.getChildAt(i)).setTextColor(colour);
+                }
+                ((ChooserAdapter) adapter).textColor = colour;
             }
-            ((ChooserAdapter) object.getAdapter()).textColor = colour;
         }
     };
 

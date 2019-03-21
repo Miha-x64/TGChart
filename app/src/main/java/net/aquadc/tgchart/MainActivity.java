@@ -20,6 +20,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.ValueCallback;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -35,9 +36,9 @@ import java.util.Locale;
 
 
 public final class MainActivity extends Activity
-        implements RangeBar.SelectionChangeListener, AdapterView.OnItemClickListener {
+        implements ValueCallback<Chart>, RangeBar.SelectionChangeListener, AdapterView.OnItemClickListener {
 
-    private static Chart chart;
+    private static SettableFuture<Chart> chart;
 
     private static final String K_COLOUR_MODE = "colourMode";
     private ColourMode colourMode = ColourMode.LIGHT;
@@ -60,15 +61,27 @@ public final class MainActivity extends Activity
     private ChartDrawable smallChart;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
+        if (chart == null) {
+            chart = new SettableFuture<>();
+            new Thread() {
+                @Override public void run() {
+                    chart.set(Chart.readTestChart(getApplicationContext()));
+                }
+            }.start();
+        }
+
         super.onCreate(savedInstanceState);
         setContentView(createContentView());
 
         TinyDancer.create().show(this);
 
-        if (chart == null) {
-            chart = Chart.readTestChart(this); // TODO: mv to bg
+        if (savedInstanceState != null) {
+            colourMode = (ColourMode) savedInstanceState.getSerializable(K_COLOUR_MODE);
         }
-
+        applyColours(colourMode, false);
+        chart.subscribe(this);
+    }
+    @Override public void onReceiveValue(Chart value) {
         Locale locale = getResources().getConfiguration().locale;
         Date sharedDate = new Date();
         ChartDrawable.ValueFormatter shortFormat = new DateFormatter(sharedDate, new SimpleDateFormat("MMM d", locale));
@@ -76,7 +89,7 @@ public final class MainActivity extends Activity
 
         float dp = getResources().getDisplayMetrics().density;
         float sp = getResources().getDisplayMetrics().scaledDensity;
-        bigChart = new ChartDrawable(chart, 2.5f * dp);
+        bigChart = new ChartDrawable(value, 2.5f * dp);
         bigChart.configureGuidelines(1.5f * dp, 4 * dp, 14 * sp, shortFormat, countFormatter);
         bigChart.occupyEvenIfEmptyY(Double.MIN_VALUE, 0);
         ViewCompat.setBackground(chartView, bigChart);
@@ -85,16 +98,12 @@ public final class MainActivity extends Activity
         chartBubbleView.setPadding(0, 0, 0, /* textSize * 2 */ (int) (28 * sp));
         chartBubbleView.setFormatters(longFormat, countFormatter);
 
-        smallChart = new ChartDrawable(chart, Math.max(1, dp));
+        smallChart = new ChartDrawable(value, Math.max(1, dp));
         ViewCompat.setBackground(rangeBarChartView, new InsetDrawable(smallChart, rangeBar.getPaddingLeft(), 0, rangeBar.getPaddingRight(), 0));
         rangeBarChartView.setPadding(0, 0, 0, 0);
         rangeBar.setSelectionChangeListener(this); // split up chart and bar, so invalidate() will trigger only a single redraw
 
-        columnChooser.setData(chart.columns, this);
-
-        if (savedInstanceState != null) {
-            colourMode = (ColourMode) savedInstanceState.getSerializable(K_COLOUR_MODE);
-        }
+        columnChooser.setData(value.columns, this);
         applyColours(colourMode, false);
     }
     @Override public void onSelectedRangeChanged(int selectionStart, int selectionEnd) {
@@ -122,6 +131,12 @@ public final class MainActivity extends Activity
     @Override protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putSerializable(K_COLOUR_MODE, colourMode);
+    }
+
+    @Override
+    protected void onDestroy() {
+        chart.unsubscribe(this);
+        super.onDestroy();
     }
 
     private View createContentView() {
@@ -249,8 +264,10 @@ public final class MainActivity extends Activity
     }
     private void finishAnim() {
         columnChooser.setSelector(Util.drawableFromTheme(getApplicationContext(), colourMode.baseTheme, android.R.attr.selectableItemBackground));
-        bigChart.setGuidelineColour(colourMode.guideline);
-        bigChart.setNumberColour(colourMode.numbers);
+        if (bigChart != null) {
+            bigChart.setGuidelineColour(colourMode.guideline);
+            bigChart.setNumberColour(colourMode.numbers);
+        }
         chartBubbleView.setGuidelineColour(colourMode.guideline);
         chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
     }
