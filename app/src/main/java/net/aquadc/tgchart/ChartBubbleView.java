@@ -3,19 +3,18 @@ package net.aquadc.tgchart;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Toast;
 import androidx.annotation.ColorInt;
-import androidx.annotation.Px;
 import net.aquadc.tgchart.card.RoundRectDrawableWithShadow;
 
 
-public final class ChartBubbleView extends View {
+public final class ChartBubbleView extends View implements View.OnClickListener {
 
     private int currentXIndex = -1; // something is showing if != null
 
@@ -33,12 +32,12 @@ public final class ChartBubbleView extends View {
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         bubbleInsets = (int) (16 * dp);
 
-        setClickable(true);
-        setAlpha(0f); // todo: show and hide bubble on short click
+        setAlpha(0f);
+        setOnClickListener(this);
     }
     @Override public void setPressed(boolean pressed) {
         super.setPressed(pressed);
-        animate().alpha(pressed ? 1f : 0f).setDuration(150).setListener(pressed ? null : clearXValue).start();
+        animate().alpha(pressed ? 1f : 0f).setDuration(150).setListener(pressed ? activate : clearXValue).start();
     }
     private final AnimatorListenerAdapter clearXValue = new AnimatorListenerAdapter() {
         @Override public void onAnimationEnd(Animator animation) {
@@ -46,6 +45,18 @@ public final class ChartBubbleView extends View {
             invalidate();
         }
     };
+    private final AnimatorListenerAdapter activate = new AnimatorListenerAdapter() {
+        @Override public void onAnimationEnd(Animator animation) {
+            activated = true;
+        }
+    };
+
+    boolean activated = false;
+    @Override public void onClick(View v) {
+        if (!activated) {
+            Toast.makeText(getContext(), "Press and hold for details.", Toast.LENGTH_SHORT).show();
+        }
+    }
 
     private float xValueTextSize;
     private float yValueTextSize;
