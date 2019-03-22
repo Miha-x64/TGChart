@@ -144,7 +144,7 @@ public final class Chart {
             // read 1st data set
             reader.beginArray();
             String name = reader.nextString();
-            ArrayList<Double> data = new ArrayList<>(); // fixme boxing
+            DoubleArrayList data = new DoubleArrayList();
             double min = Double.MAX_VALUE;
             double max = Double.MIN_VALUE;
             while (reader.hasNext()) {
@@ -155,14 +155,11 @@ public final class Chart {
             }
             reader.endArray();
 
-            int size = data.size();
-            double[] values = new double[size];
-            for (int i = 0; i < size; i++) {
-                values[i] = data.get(i);
-            }
+            double[] values = data.toArray();
             columns.put(name, new Pair<>(values, new double[] { min, max }));
 
             // read remaining data sets, assuming they have the same length
+            int size = values.length;
             while (reader.hasNext()) {
                 reader.beginArray();
 
