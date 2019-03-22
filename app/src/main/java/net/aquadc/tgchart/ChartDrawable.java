@@ -24,7 +24,7 @@ public final class ChartDrawable extends Drawable {
 
     final Chart data; // package-private shortcut for ChartExtrasView
 
-    private Path path;
+    private Path[] paths;
     private Matrix matrix;
 
     private final float chartThickness;
@@ -36,7 +36,7 @@ public final class ChartDrawable extends Drawable {
     private ValueFormatter yValueFormatter;
 
     private final Paint paint;
-    private boolean dirty;
+    private boolean dirtyBounds;
 
     private double minTop = Double.MIN_VALUE;
     private double maxBottom = Double.MAX_VALUE;
@@ -51,7 +51,7 @@ public final class ChartDrawable extends Drawable {
         this.chartThickness = chartThickness;
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         this.paint.setStyle(Paint.Style.STROKE);
-        this.dirty = true;
+        this.dirtyBounds = true;
 
         int length = data.columns.length;
         this.visible = new BitSet(length);
@@ -83,13 +83,14 @@ public final class ChartDrawable extends Drawable {
     }
 
     private float[] normalized;
+    private double yMin, yMax, yDiff; // shared with Bubble overlay
     @Override public void draw(@NonNull Canvas canvas) {
-        if (dirty) normalize();
+        if (dirtyBounds) normalize();
 
         long nanos = 0;
         if (DEBUG) nanos = System.nanoTime();
 
-        // preparations
+        // common preparations
         int width = width();
         float[] normalized = this.normalized;
 
@@ -104,6 +105,7 @@ public final class ChartDrawable extends Drawable {
         Chart.Column[] columns = data.columns;
         int colCount = columns.length;
 
+        /*/ figure out absolute limits — now unused since we use limits local to the visible window
         double yMin = maxBottom;
         double yMax = minTop;
         for (int ci = 0; ci < colCount; ci++) {
@@ -114,12 +116,47 @@ public final class ChartDrawable extends Drawable {
                 double max = column.maxValue;
                 if (max > yMax) yMax = max;
             }
+        }*/
+
+        // let's find visible window limits first
+        yMin = maxBottom;
+        yMax = minTop;
+        for (int ci = 0; ci < colCount; ci++) {
+            if (visible.get(ci)) {
+                int yi = (ci + 1) * length;
+                yi += firstVisibleIdx; // skip left invisible part
+                // paths are cool & shit, but cannot be drawn partially, so let's fill 'em on demand
+                // drawLine was OK but can't draw good line joins
+
+                int xi = firstVisibleIdx;
+                Path path = paths[ci];
+
+                float firstX = normalized[xi++], firstY = normalized[yi++];
+                float colMinY = firstY, colMaxY = firstY;
+                int minYIdx = firstVisibleIdx, maxYIdx = firstVisibleIdx;
+                path.moveTo(firstX, firstY);
+                while (xi <= lastVisibleIdx) {
+                    float x = normalized[xi], y = normalized[yi];
+                    if (y < colMinY) {
+                        colMinY = y; maxYIdx = xi;
+                    } else if (y > colMaxY) {
+                        colMaxY = y; minYIdx = xi;
+                    } // min & max are mixed because 'normalized' values are inverted
+                    path.lineTo(x, y);
+                    xi++; yi++;
+                }
+                // don't mind right invisible part
+
+                Chart.Column column = columns[ci];
+                double dColMinY = column.values[minYIdx];
+                double dColMaxY = column.values[maxYIdx];
+                if (dColMinY < yMin) yMin = dColMinY;
+                if (dColMaxY > yMax) yMax = dColMaxY;
+            }
         }
-        double yDiff = yMax - yMin;
 
         float xScale = width / (xEnd - xStart);
         float translateX = -xStart * xScale;
-
         canvas.save();
         canvas.translate(getBounds().left, getBounds().top);
         canvas.clipRect(0, 0, width, height());
@@ -143,39 +180,26 @@ public final class ChartDrawable extends Drawable {
         int height = height();
         int chartHeight = height - bottomPadding;
         float heightFactor = (float) chartHeight / height;
+        canvas.translate(translateX, 0);
+
+        yDiff = yMax - yMin;
         for (int ci = 0; ci < colCount; ci++) {
-            if (visible.get(ci)) {
-                Chart.Column column = columns[ci];
-                paint.setColor(column.colour);
-                canvas.save();
+            Chart.Column column = columns[ci];
+            paint.setColor(column.colour);
 
-                // y values are normalized to [0; height] with no regard to other data sets, let's scale according to that
-                double colYMax = column.maxValue;
-                double colYDiff = colYMax - column.minValue;
-                float yScale = (float) (colYDiff / yDiff) * heightFactor;
+            // y values are normalized to [0; height] with no regard to other data sets, let's scale according to that
+            float colYDiff = (float) (column.maxValue - column.minValue);
+//            float yScale = (float) (colYDiff / yDiff) * heightFactor;
+            float yScale = (float) (colYDiff / yDiff) * heightFactor;
+//            float translateY = (float) ((yMax - column.maxValue) / yDiff * chartHeight);
+            float translateY = (float) ((yMax - column.maxValue) / yDiff * chartHeight);
 
-                float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
-                canvas.translate(translateX, translateY);
-
-
-                int yi = (ci + 1) * length;
-                yi += firstVisibleIdx; // skip left invisible part
-                // paths are cool & shit, but cannot be drawn partially, so let's fill 'em on demand
-                // drawLine is OK but can't draw good line joins
-
-                int xi = firstVisibleIdx;
-                path.moveTo(normalized[xi++], normalized[yi++]);
-                while (xi <= lastVisibleIdx) {
-                    path.lineTo(normalized[xi++], normalized[yi++]);
-                }
-                // don't mind right invisible part
-                matrix.setScale(xScale, yScale);
-                path.transform(matrix);
-                canvas.drawPath(path, paint);
-                path.rewind();
-
-                canvas.restore();
-            }
+            Path path = paths[ci];
+            matrix.setScale(xScale, yScale);
+            matrix.postTranslate(0, translateY);
+            path.transform(matrix);
+            canvas.drawPath(path, paint);
+            path.rewind();
         }
         canvas.restore();
 
@@ -356,7 +380,10 @@ public final class ChartDrawable extends Drawable {
         int colCount = columns.length;
         if (normalized == null) {
             normalized = new float[length * (colCount + 1)];
-            path = new Path();
+            paths = new Path[colCount];
+            for (int i = 0; i < colCount; i++) {
+                paths[i] = new Path();
+            }
             matrix = new Matrix();
         }
 
@@ -383,7 +410,7 @@ public final class ChartDrawable extends Drawable {
             }
         }
 
-        dirty = false;
+        dirtyBounds = false;
     }
 
     // inclusive bounds
@@ -417,7 +444,7 @@ public final class ChartDrawable extends Drawable {
     }
 
     @Override protected void onBoundsChange(Rect bounds) {
-        dirty = true;
+        dirtyBounds = true;
         invalidateSelf();
     }
 
@@ -431,7 +458,7 @@ public final class ChartDrawable extends Drawable {
         }
     }
 
-    public void setVisibleRange(int startPerMille, int endPerMille) { // TODO: change Y scale depending on visible window
+    public void setVisibleRange(int startPerMille, int endPerMille) {
         firstVisibleXPerMille = startPerMille;
         firstInvisibleXPerMille = endPerMille;
 
@@ -488,14 +515,14 @@ public final class ChartDrawable extends Drawable {
     // shortcuts for ChartExtrasView
 
     int getIndexAt(float xPos) {
-        if (dirty) normalize();
+        if (dirtyBounds) normalize();
 
         float scaledX = (xPos - translateX()) / xScale();
         int length = data.x.values.length;
         return indexOfClosest(normalized, 0, length, scaledX);
     }
     float getXPositionAt(int index) {
-        if (dirty) normalize();
+        if (dirtyBounds) normalize();
 
         return normalized[index] * xScale() + translateX();
     }
@@ -530,26 +557,15 @@ public final class ChartDrawable extends Drawable {
 
     // serious copy-paste
     float[] getYPositionsAt(int index, float[] dest) {
-        if (dirty) normalize();
+        if (dirtyBounds) normalize();
+        // fixme: assumes draw() was called!
+
         Chart.Column[] columns = data.columns;
         int colCnt = columns.length;
         if (dest == null || dest.length != colCnt) {
             dest = new float[colCnt];
         }
         int length = data.x.values.length;
-
-        double yMin = maxBottom;
-        double yMax = minTop;
-        for (int ci = 0; ci < colCnt; ci++) {
-            if (visible.get(ci)) {
-                Chart.Column column = columns[ci];
-                double min = column.minValue;
-                if (min < yMin) yMin = min;
-                double max = column.maxValue;
-                if (max > yMax) yMax = max;
-            }
-        }
-        double yDiff = yMax - yMin;
 
         boolean drawNumbers = textSize > 0 && numberPaint != null;
         int bottomPadding = drawNumbers && xValueFormatter != null ? (int) (2 * textSize) : 0;
