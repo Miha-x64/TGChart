@@ -2,6 +2,7 @@ package net.aquadc.tgchart;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
@@ -87,7 +88,48 @@ public final class ChartDrawable extends Drawable {
     }
 
     private float[] normalized;
-    private double yMin, yMax, yDiff; // shared with Bubble overlay
+
+    private double targetYMin, targetYMax, yMin, yMax, yDiff = Double.NaN; // shared with Bubble overlay
+    private AnimatorSet yAnimator;
+    private void animYDiff(double toYMin, double toYMax) {
+        if (targetYMin == toYMin && targetYMax == toYMax) {
+            return;
+        }
+        targetYMin = toYMin;
+        targetYMax = toYMax;
+
+        if (yAnimator != null) yAnimator.cancel();
+        if (nullOutYDiffAnim == null) {
+            updateYMinAnim = new ValueAnimator.AnimatorUpdateListener() {
+                @Override public void onAnimationUpdate(ValueAnimator animation) {
+                    yMin = (Double) animation.getAnimatedValue();
+                    yDiff = yMax - yMin;
+                    invalidateSelf();
+                }
+            };
+            updateYMaxAnim = new ValueAnimator.AnimatorUpdateListener() {
+                @Override public void onAnimationUpdate(ValueAnimator animation) {
+                    yMax = (Double) animation.getAnimatedValue();
+                    yDiff = yMax - yMin;
+                    invalidateSelf();
+                }
+            };
+        }
+
+
+        ValueAnimator yMinAnim = ObjectAnimator.ofObject(DoubleEvaluator.INSTANCE, yMin, toYMin);
+        yMinAnim.addUpdateListener(updateYMinAnim);
+
+        ValueAnimator yMaxAnim = ObjectAnimator.ofObject(DoubleEvaluator.INSTANCE, yMax, toYMax);
+        yMaxAnim.addUpdateListener(updateYMaxAnim);
+
+        yAnimator = new AnimatorSet().setDuration(100);
+        yAnimator.playTogether(yMinAnim, yMaxAnim);
+        yAnimator.addListener(nullOutYDiffAnim);
+        yAnimator.start();
+    }
+    private AnimatorListenerAdapter nullOutYDiffAnim;
+    private ValueAnimator.AnimatorUpdateListener updateYMinAnim, updateYMaxAnim;
     @Override public void draw(@NonNull Canvas canvas) {
         if (dirtyBounds) normalize();
 
@@ -123,8 +165,8 @@ public final class ChartDrawable extends Drawable {
         }*/
 
         // let's find visible window limits first
-        yMin = maxBottom;
-        yMax = minTop;
+        double _yMin = maxBottom;
+        double _yMax = minTop;
         for (int ci = 0; ci < colCount; ci++) {
             if (visible.get(ci)) {
                 int yi = (ci + 1) * length;
@@ -154,9 +196,17 @@ public final class ChartDrawable extends Drawable {
                 Chart.Column column = columns[ci];
                 double dColMinY = column.values[minYIdx];
                 double dColMaxY = column.values[maxYIdx];
-                if (dColMinY < yMin) yMin = dColMinY;
-                if (dColMaxY > yMax) yMax = dColMaxY;
+                if (dColMinY < _yMin) _yMin = dColMinY;
+                if (dColMaxY > _yMax) _yMax = dColMaxY;
             }
+        }
+        double _yDiff = _yMax - _yMin;
+        if (Double.isNaN(yDiff)) {
+            yMin = _yMin;
+            yMax = _yMax;
+            yDiff = _yDiff;
+        } else if (yDiff != _yDiff || yMax != _yMax) {
+            animYDiff(_yMin, _yMax);
         }
 
         float xScale = width / (xEnd - xStart);
@@ -175,7 +225,7 @@ public final class ChartDrawable extends Drawable {
         }
         drawNumbers &= yValueFormatter != null;
         if (drawGuidelines || drawNumbers) {
-            drawGuidelinesOrNumbers(canvas, yMin, yMax, drawGuidelines, drawNumbers, bottomPadding);
+            drawGuidelinesOrNumbers(canvas, drawGuidelines, drawNumbers, bottomPadding);
         }
 
         // draw columns (over guidelines)
@@ -186,7 +236,6 @@ public final class ChartDrawable extends Drawable {
         float heightFactor = (float) chartHeight / height;
         canvas.translate(translateX, 0);
 
-        yDiff = yMax - yMin;
         for (int ci = 0; ci < colCount; ci++) {
             Chart.Column column = columns[ci];
             paint.setColor(column.colour);
@@ -225,9 +274,8 @@ public final class ChartDrawable extends Drawable {
 
     private StringBuilder numberSb;
     private TextPaint numberPaint;
-    private void drawGuidelinesOrNumbers(Canvas canvas, double yMin, double yMax, boolean drawGuidelines, boolean drawNumbers, int bottomPadding) {
+    private void drawGuidelinesOrNumbers(Canvas canvas, boolean drawGuidelines, boolean drawNumbers, int bottomPadding) {
         int height = height() - bottomPadding;
-        double yDiff = yMax - yMin;
         double step = yDiff / height * 3 * textSize; // control the density of these numbers
         if (step != 0) {
             int exp = 0;
@@ -323,13 +371,13 @@ public final class ChartDrawable extends Drawable {
     private int animDirection;
     private void animTextAlpha(int from, int to) {
         if (textAlphaAnimator == null) {
-            if (nullOutAnim == null) {
-                nullOutAnim = new AnimatorListenerAdapter() {
+            if (nullOutTextAlphaAnim == null) {
+                nullOutTextAlphaAnim = new AnimatorListenerAdapter() {
                     @Override public void onAnimationEnd(Animator animation) {
                         textAlphaAnimator = null;
                     }
                 };
-                updateAnim = new ValueAnimator.AnimatorUpdateListener() {
+                updateTextAlphaAnim = new ValueAnimator.AnimatorUpdateListener() {
                     @Override public void onAnimationUpdate(ValueAnimator animation) {
                         animatedTextAlpha = (Integer) animation.getAnimatedValue();
                         invalidateSelf();
@@ -337,13 +385,13 @@ public final class ChartDrawable extends Drawable {
                 };
             }
             textAlphaAnimator = ObjectAnimator.ofInt(from, to).setDuration(200);
-            textAlphaAnimator.addListener(nullOutAnim);
-            textAlphaAnimator.addUpdateListener(updateAnim);
+            textAlphaAnimator.addListener(nullOutTextAlphaAnim);
+            textAlphaAnimator.addUpdateListener(updateTextAlphaAnim);
             textAlphaAnimator.start();
         }
     }
-    private AnimatorListenerAdapter nullOutAnim;
-    private ValueAnimator.AnimatorUpdateListener updateAnim;
+    private AnimatorListenerAdapter nullOutTextAlphaAnim;
+    private ValueAnimator.AnimatorUpdateListener updateTextAlphaAnim;
 
     private StringBuilder texts;
     /**
@@ -520,16 +568,6 @@ public final class ChartDrawable extends Drawable {
             numberPaint.setColor(numberColour);
             invalidateSelf();
         }
-    }
-
-    private static int indexOfClosest(double[] haystack, double needle) {
-        int index = Arrays.binarySearch(haystack, needle);
-        return index >= 0 ? index : -index - 1;
-    }
-
-    private static int indexOfClosest(float[] haystack, float needle) {
-        int index = Arrays.binarySearch(haystack, needle);
-        return index >= 0 ? index : -index - 1;
     }
 
     private static int indexOfClosest(float[] haystack, int fromIndex, int toIndex, float needle) {
