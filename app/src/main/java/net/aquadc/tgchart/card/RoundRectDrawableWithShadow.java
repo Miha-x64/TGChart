@@ -33,7 +33,7 @@ import androidx.annotation.ColorInt;
 /**
  * A rounded rectangle drawable which also includes a shadow around.
  */
-public class RoundRectDrawableWithShadow extends Drawable { // changed visibility modifier
+public final class RoundRectDrawableWithShadow extends Drawable { // changed visibility modifier
     // used to calculate content padding
     private static final double COS_45 = Math.cos(Math.toRadians(45));
 

@@ -3,7 +3,7 @@ package net.aquadc.tgchart;
 import java.util.Arrays;
 
 
-public class DoubleArrayList {
+public final class DoubleArrayList {
 
     private double[] elementData;
 
