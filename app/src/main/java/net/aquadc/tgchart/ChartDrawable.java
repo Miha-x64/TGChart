@@ -42,7 +42,7 @@ public final class ChartDrawable extends Drawable {
     private final Paint paint;
     private boolean dirtyBounds;
 
-    private double minTop = Double.MIN_VALUE;
+    private double minTop = -Double.MAX_VALUE;
     private double maxBottom = Double.MAX_VALUE;
     private final BitSet visible;
     private int firstVisibleXPerMille;

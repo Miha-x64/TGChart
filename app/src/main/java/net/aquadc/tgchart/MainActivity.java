@@ -92,7 +92,7 @@ public final class MainActivity extends Activity
         float sp = getResources().getDisplayMetrics().scaledDensity;
         bigChart = new ChartDrawable(value, 2.5f * dp);
         bigChart.configureGuidelines(1.5f * dp, 4 * dp, 14 * sp, shortFormat, countFormatter);
-        bigChart.occupyEvenIfEmptyY(Double.MIN_VALUE, 0);
+        bigChart.occupyEvenIfEmptyY(-Double.MAX_VALUE, 0);
         ViewCompat.setBackground(chartView, bigChart);
 
         chartBubbleView.setChart(bigChart);

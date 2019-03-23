@@ -146,7 +146,7 @@ public final class Chart {
             String name = reader.nextString();
             DoubleArrayList data = new DoubleArrayList();
             double min = Double.MAX_VALUE;
-            double max = Double.MIN_VALUE;
+            double max = -Double.MAX_VALUE;
             while (reader.hasNext()) {
                 double d = reader.nextDouble();
                 data.add(d);
