@@ -1,5 +1,9 @@
 package net.aquadc.tgchart;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -313,6 +317,34 @@ public final class ChartDrawable extends Drawable {
         fitTexts(firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, canvas, translateX, xScale, textY);
     }
 
+    private int prevTextLengthX = -1;
+    int animatedTextAlpha = 255;
+    ValueAnimator textAlphaAnimator;
+    private int animDirection;
+    private void animTextAlpha(int from, int to) {
+        if (textAlphaAnimator == null) {
+            if (nullOutAnim == null) {
+                nullOutAnim = new AnimatorListenerAdapter() {
+                    @Override public void onAnimationEnd(Animator animation) {
+                        textAlphaAnimator = null;
+                    }
+                };
+                updateAnim = new ValueAnimator.AnimatorUpdateListener() {
+                    @Override public void onAnimationUpdate(ValueAnimator animation) {
+                        animatedTextAlpha = (Integer) animation.getAnimatedValue();
+                        invalidateSelf();
+                    }
+                };
+            }
+            textAlphaAnimator = ObjectAnimator.ofInt(from, to).setDuration(200);
+            textAlphaAnimator.addListener(nullOutAnim);
+            textAlphaAnimator.addUpdateListener(updateAnim);
+            textAlphaAnimator.start();
+        }
+    }
+    private AnimatorListenerAdapter nullOutAnim;
+    private ValueAnimator.AnimatorUpdateListener updateAnim;
+
     private StringBuilder texts;
     /**
      * @return how many times bigger {@param maxTextWidth} should be
@@ -320,6 +352,21 @@ public final class ChartDrawable extends Drawable {
     private int fitTexts(float firstVisibleX, float firstInvisibleX, int textLengthX,
                              /*only for measuring*/ float maxTextWidth,
                              /*only for drawing*/ Canvas canvas, float translateX, float xScale, float y) {
+
+        if (canvas != null) {
+            if (prevTextLengthX != -1 && textAlphaAnimator == null) {
+                if (prevTextLengthX > textLengthX) {
+                    animTextAlpha(0, 255);
+                    animDirection = 1;
+                } else if (prevTextLengthX < textLengthX) {
+                    animTextAlpha(255, 0);
+                    animDirection = -1;
+                }
+            }
+            prevTextLengthX = textLengthX;
+            if (animDirection == -1) textLengthX = Math.max(1, textLengthX/2); // show disappearing values, not only stable ones
+        }
+
         double[] xValues = data.x.values;
         int length = xValues.length;
         int width = width();
@@ -346,11 +393,13 @@ public final class ChartDrawable extends Drawable {
                 // even here we can't reuse measured & formatted data from the previous pass because textLengthX may have changed which will move all text layouts
                 float xOnScreen = xPos * xScale + translateX;
                 float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
+                numberPaint.setAlpha(i%2 == 0 ? 255 : animatedTextAlpha);
                 canvas.drawText(texts, 0, texts.length(), xOnScreen + xq * textWidth, y, numberPaint);
 //                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
                 texts.setLength(0);
             }
         }
+        numberPaint.setAlpha(255);
         return 1;
     }
 
