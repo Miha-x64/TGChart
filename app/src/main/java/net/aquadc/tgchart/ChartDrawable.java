@@ -240,7 +240,7 @@ public final class ChartDrawable extends Drawable {
         Paint paint = this.paint;
         paint.setStrokeWidth(chartThickness);
         int height = height();
-        int chartHeight = height - bottomPadding;
+        int chartHeight = height - bottomPadding - (int) chartThickness;
         float heightFactor = (float) chartHeight / height;
         canvas.translate(translateX, 0);
 
@@ -258,7 +258,7 @@ public final class ChartDrawable extends Drawable {
 
             Path path = paths[ci];
             matrix.setScale(xScale, yScale);
-            matrix.postTranslate(0, translateY);
+            matrix.postTranslate(0, translateY + (int) chartThickness);
             path.transform(matrix);
             canvas.drawPath(path, paint);
             path.rewind();
@@ -678,7 +678,7 @@ public final class ChartDrawable extends Drawable {
         int bottomPadding = drawNumbers && xValueFormatter != null ? (int) (2 * textSize) : 0;
 
         int height = height();
-        int chartHeight = height - bottomPadding;
+        int chartHeight = height - bottomPadding - (int) chartThickness;
         float heightFactor = (float) chartHeight / height;
         for (int i = 0; i < colCnt; i++) {
             if (visibilities[i] == (byte) 255) {
@@ -687,7 +687,7 @@ public final class ChartDrawable extends Drawable {
                 double colYDiff = colYMax - column.minValue;
                 float yScale = (float) (colYDiff / yDiff) * heightFactor;
                 float translateY = (float) ((yMax - colYMax) / yDiff * chartHeight);
-                dest[i] = translateY + normalized[length + i * length + index] * yScale;
+                dest[i] = translateY + normalized[length + i * length + index] * yScale + (int) chartThickness;
             } else {
                 dest[i] = Float.NaN;
             }
