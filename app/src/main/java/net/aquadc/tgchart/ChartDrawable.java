@@ -48,7 +48,8 @@ public final class ChartDrawable extends Drawable {
     private double minTop = -Double.MAX_VALUE;
     private double maxBottom = Double.MAX_VALUE;
 
-    private final /*unsigned*/ byte[] visibilities;
+    private static final int APPEARING = 1 << 16;
+    private final int[] visibilities;
     private ValueAnimator[] visibilityAnimations;
     private ValueAnimator.AnimatorUpdateListener[] visibilityListeners;
 
@@ -65,7 +66,7 @@ public final class ChartDrawable extends Drawable {
         this.dirtyBounds = true;
 
         int length = data.columns.length;
-        this.visibilities = new byte[length];
+        this.visibilities = new int[length];
         for (int i = 0; i < length; i++) {
             visibilities[i] = (byte) 255;
         }
@@ -188,8 +189,8 @@ public final class ChartDrawable extends Drawable {
         double _yMax = minTop;
         boolean visible = false;
         for (int ci = 0; ci < colCount; ci++) {
-            if (visibilities[ci] != 0) {
-                visible = true;
+            int visibility = visibilities[ci];
+            if (visibility != 0) {
                 int yi = (ci + 1) * length;
                 yi += firstVisibleIdx; // skip left invisible part
                 // paths are cool & shit, but cannot be drawn partially, so let's fill 'em on demand
@@ -214,25 +215,29 @@ public final class ChartDrawable extends Drawable {
                 }
                 // don't mind right invisible part
 
-                Chart.Column column = columns[ci];
-                double dColMinY = column.values[minYIdx];
-                double dColMaxY = column.values[maxYIdx];
-                if (dColMinY < _yMin) _yMin = dColMinY;
-                if (dColMaxY > _yMax) _yMax = dColMaxY;
+                if ((visibility & APPEARING) != 0) {
+                    Chart.Column column = columns[ci];
+                    double dColMinY = column.values[minYIdx];
+                    double dColMaxY = column.values[maxYIdx];
+                    if (dColMinY < _yMin) _yMin = dColMinY;
+                    if (dColMaxY > _yMax) _yMax = dColMaxY;
+                    visible = true;
+                }
             }
         }
-        if (!visible) return;
 
         double _yDiff = _yMax - _yMin;
-        if (Double.isNaN(yDiff)) {
-            yMin = _yMin;
-            yMax = _yMax;
-            yDiff = _yDiff;
-            prevYMin = _yMin;
-            prevYMax = _yMax;
-        } else if (yDiff != _yDiff || yMax != _yMax) {
-            animYDiff(_yMin, _yMax);
-        }
+        if (visible) {
+            if (Double.isNaN(yDiff)) {
+                yMin = _yMin;
+                yMax = _yMax;
+                yDiff = _yDiff;
+                prevYMin = _yMin;
+                prevYMax = _yMax;
+            } else if (yDiff != _yDiff || yMax != _yMax) {
+                animYDiff(_yMin, _yMax);
+            }
+        } // else don't touch scale and let the paths disappear
 
         float xScale = width / (xEnd - xStart);
         float translateX = -xStart * xScale;
@@ -564,7 +569,7 @@ public final class ChartDrawable extends Drawable {
         invalidateSelf();
     }
 
-    public void setColumnVisibleAt(final int index, boolean whether) { // TODO: animate
+    public void setColumnVisibleAt(final int index, boolean whether) {
         if (index < 0 || index >= data.columns.length) {
             throw new IndexOutOfBoundsException(String.format("index must be in [0; %d), %d given", data.columns.length, index));
         }
@@ -583,7 +588,10 @@ public final class ChartDrawable extends Drawable {
             if (visibilityListeners[index] == null) {
                 visibilityListeners[index] = new ValueAnimator.AnimatorUpdateListener() {
                     @Override public void onAnimationUpdate(ValueAnimator animation) {
-                        visibilities[index] = (byte) (int) (Integer) animation.getAnimatedValue();
+                        int prev = visibilities[index] & 0xFF;
+                        int next = (byte) (int) (Integer) animation.getAnimatedValue();
+                        if (next > prev) next |= APPEARING;
+                        visibilities[index] = next;
                         invalidateSelf();
                     }
                 };
@@ -593,7 +601,6 @@ public final class ChartDrawable extends Drawable {
             anim.addUpdateListener(visibilityListeners[index]);
             anim.start();
             visibilityAnimations[index] = anim;
-            System.out.println("anim at " + index + " from " + alpha + " to " + targetAlpha);
 
             invalidateSelf();
         }
