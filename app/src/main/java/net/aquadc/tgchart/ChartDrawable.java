@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -15,6 +16,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
+import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -26,8 +28,9 @@ public final class ChartDrawable extends Drawable {
 
     private static final boolean DEBUG = false;
 
-    private static final int Y_ANIM_DURATION = 150;
+    private static final int Y_ANIM_DURATION = 250;
     private static final int X_ANIM_DURATION = 200;
+    private static final TimeInterpolator INTERPOLATOR = new DecelerateInterpolator();
 
     final Chart data; // package-private shortcut for ChartExtrasView
 
@@ -147,6 +150,7 @@ public final class ChartDrawable extends Drawable {
         yProgressAnim.addUpdateListener(updateYProgress);
 
         yAnimator = new AnimatorSet().setDuration(Y_ANIM_DURATION);
+        yAnimator.setInterpolator(INTERPOLATOR);
         yAnimator.playTogether(yMinAnim, yMaxAnim, yProgressAnim);
         yAnimator.start();
     }
