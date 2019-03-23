@@ -6,6 +6,7 @@ import android.animation.AnimatorSet;
 import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.animation.TypeEvaluator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -163,7 +164,7 @@ public final class MainActivity extends Activity
             {
                 chartBubbleView = new ChartBubbleView(this);
                 chartBubbleView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                chartBubbleView.setSizes(1.5f * dp, 4 * dp, 2 * dp);
+                chartBubbleView.setSizes(2f * dp, 3.5f * dp, 2 * dp);
                 chartBubbleView.setTextSizes(14 * sp, 16 * sp, 12 * sp, 8 * sp);
                 chartView.addView(chartBubbleView);
             }
@@ -247,13 +248,25 @@ public final class MainActivity extends Activity
 
         this.colourMode = colourMode;
         if (set == null) {
-            finishAnim();
+            applyTransparentColours();
         } else {
-            set.setDuration(300);
+            set.setDuration(200);
+
+            ValueAnimator progress = ObjectAnimator.ofInt(0, 255);
+            progress.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                private boolean applied = false;
+                @Override public void onAnimationUpdate(ValueAnimator animation) {
+                    if (!applied && (Integer) animation.getAnimatedValue() > 100) {
+                        applied = true;
+                        applyTransparentColours();
+                    }
+                }
+            });
+            set.playTogether(progress);
+
             set.addListener(new AnimatorListenerAdapter() {
                 @Override public void onAnimationEnd(Animator animation) {
                     ViewCompat.setBackground(sheetShadow, shadowDrawable.getDrawable(1));
-                    finishAnim();
                 }
             });
             set.start();
@@ -262,13 +275,13 @@ public final class MainActivity extends Activity
     private GradientDrawable createShadow(ColourMode colourMode) {
         return new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{colourMode.shadow, colourMode.window});
     }
-    private void finishAnim() {
+    private void applyTransparentColours() {
         columnChooser.setSelector(Util.drawableFromTheme(getApplicationContext(), colourMode.baseTheme, android.R.attr.selectableItemBackground));
         if (bigChart != null) {
-            bigChart.setGuidelineColour(colourMode.guideline);
+            bigChart.setGuidelineColour(colourMode.hGuideline);
             bigChart.setNumberColour(colourMode.numbers);
         }
-        chartBubbleView.setGuidelineColour(colourMode.guideline);
+        chartBubbleView.setGuidelineColour(colourMode.vGuideline);
         chartBubbleView.setColours(colourMode.cardBg, colourMode. cardText);
     }
     private static <T> void addArgbAnim(AnimatorSet set,

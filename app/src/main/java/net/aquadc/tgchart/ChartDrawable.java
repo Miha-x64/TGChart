@@ -475,9 +475,9 @@ public final class ChartDrawable extends Drawable {
     public void setNumberColour(@ColorInt int numberColour) {
         if (numberPaint == null) {
             numberPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+            numberPaint.setAlpha(paint.getAlpha()); // important: setting alpha BEFORE colour
             numberPaint.setColor(numberColour);
             numberPaint.setTextSize(textSize);
-            numberPaint.setAlpha(paint.getAlpha());
             numberPaint.setColorFilter(paint.getColorFilter());
             numberSb = new StringBuilder(5);
             invalidateSelf();
