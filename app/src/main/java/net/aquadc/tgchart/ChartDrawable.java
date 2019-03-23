@@ -297,7 +297,7 @@ public final class ChartDrawable extends Drawable {
         while (true) { // try sample sizes until we find a suitable one
             float textWidthPx = (float) textLengthX * xWidthPx; // will be >= 32 for the first time
             texts.setLength(0);
-            int requiredSpace = fitTexts(null, firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, Float.NaN, Float.NaN, Float.NaN);
+            int requiredSpace = fitTexts(firstVisibleX, firstInvisibleX, textLengthX, textWidthPx, null, Float.NaN, Float.NaN, Float.NaN);
             if (requiredSpace == 1) {
                 break;
             } else {
@@ -310,18 +310,16 @@ public final class ChartDrawable extends Drawable {
 
         float textY = height() - textIndent;
         // now draw!
-        fitTexts(canvas, firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, translateX, xScale, textY);
+        fitTexts(firstVisibleX, firstInvisibleX, textLengthX, Float.NaN, canvas, translateX, xScale, textY);
     }
 
     private StringBuilder texts;
-    private int[] textLengths;
-    private float[] measuredTexts;
     /**
      * @return how many times bigger {@param maxTextWidth} should be
      */
-    private int fitTexts(Canvas canvas, float firstVisibleX, float firstInvisibleX, int textLengthX,
+    private int fitTexts(float firstVisibleX, float firstInvisibleX, int textLengthX,
                              /*only for measuring*/ float maxTextWidth,
-                             /*only for drawing*/ float translateX, float xScale, float y) {
+                             /*only for drawing*/ Canvas canvas, float translateX, float xScale, float y) {
         double[] xValues = data.x.values;
         int length = xValues.length;
         int width = width();
@@ -331,39 +329,27 @@ public final class ChartDrawable extends Drawable {
         int count = (int) Math.ceil((firstInvisibleXRnd - firstVisibleXRnd) / (float) textLengthX);
 
         int last = count - 1;
-        int sbOffset = 0;
         for (int i = 0; i <= last; i++) {
             int x = firstVisibleXRnd + i * textLengthX;
             float xPos = width * x / length;
             int xIdx = indexOfClosest(normalized, 0, length, xPos);
-//            xPos = normalized[xIdx]; // fixme: we seem to have a precision issue; try comparing xPos with normalized[xIdx]
+//            xPos = normalized[xIdx]; // fixme: we seem to have a precision issue; try comparing xPos to normalized[xIdx]
 
-            int textLen;
+            xValueFormatter.formatValueInto(texts, xValues[xIdx]);
+            float textWidth = numberPaint.measureText(texts, 0, texts.length());
             if (canvas == null) { // dry run just for measurement
-                xValueFormatter.formatValueInto(texts, xValues[xIdx]);
-                textLen = texts.length() - sbOffset;
-
-                float textWidth = numberPaint.measureText(texts, sbOffset, sbOffset + textLen);
+                texts.setLength(0);
                 if (textWidth > maxTextWidth) {
                     return Math.max(2, Integer.highestOneBit((int) Math.ceil(textWidth / maxTextWidth)));
                 }
-
-                // measure & try return first; allocate then
-                if (measuredTexts == null || measuredTexts.length < count) {
-                    measuredTexts = new float[count];
-                    textLengths = new int[count];
-                }
-
-                textLengths[i] = textLen;
-                measuredTexts[i] = textWidth;
             } else {
+                // even here we can't reuse measured & formatted data from the previous pass because textLengthX may have changed which will move all text layouts
                 float xOnScreen = xPos * xScale + translateX;
                 float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
-                textLen = textLengths[i];
-                canvas.drawText(texts, sbOffset, sbOffset + textLen, xOnScreen + xq * measuredTexts[i], y, numberPaint);
+                canvas.drawText(texts, 0, texts.length(), xOnScreen + xq * textWidth, y, numberPaint);
 //                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
+                texts.setLength(0);
             }
-            sbOffset += textLen;
         }
         return 1;
     }
