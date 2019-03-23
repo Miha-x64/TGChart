@@ -45,7 +45,11 @@ public final class ChartDrawable extends Drawable {
 
     private double minTop = -Double.MAX_VALUE;
     private double maxBottom = Double.MAX_VALUE;
-    private final BitSet visible;
+
+    private final /*unsigned*/ byte[] visibilities;
+    private ValueAnimator[] visibilityAnimations;
+    private ValueAnimator.AnimatorUpdateListener[] visibilityListeners;
+
     private int firstVisibleXPerMille;
     private int firstInvisibleXPerMille;
 
@@ -59,8 +63,10 @@ public final class ChartDrawable extends Drawable {
         this.dirtyBounds = true;
 
         int length = data.columns.length;
-        this.visible = new BitSet(length);
-        this.visible.set(0, length);
+        this.visibilities = new byte[length];
+        for (int i = 0; i < length; i++) {
+            visibilities[i] = (byte) 255;
+        }
 
         this.firstVisibleXPerMille = 0;
         this.firstInvisibleXPerMille = 1000;
@@ -99,7 +105,7 @@ public final class ChartDrawable extends Drawable {
         targetYMax = toYMax;
 
         if (yAnimator != null) yAnimator.cancel();
-        if (nullOutYDiffAnim == null) {
+        if (updateYMinAnim == null) {
             updateYMinAnim = new ValueAnimator.AnimatorUpdateListener() {
                 @Override public void onAnimationUpdate(ValueAnimator animation) {
                     yMin = (Double) animation.getAnimatedValue();
@@ -125,10 +131,8 @@ public final class ChartDrawable extends Drawable {
 
         yAnimator = new AnimatorSet().setDuration(100);
         yAnimator.playTogether(yMinAnim, yMaxAnim);
-        yAnimator.addListener(nullOutYDiffAnim);
         yAnimator.start();
     }
-    private AnimatorListenerAdapter nullOutYDiffAnim;
     private ValueAnimator.AnimatorUpdateListener updateYMinAnim, updateYMaxAnim;
     @Override public void draw(@NonNull Canvas canvas) {
         if (dirtyBounds) normalize();
@@ -167,8 +171,10 @@ public final class ChartDrawable extends Drawable {
         // let's find visible window limits first
         double _yMin = maxBottom;
         double _yMax = minTop;
+        boolean visible = false;
         for (int ci = 0; ci < colCount; ci++) {
-            if (visible.get(ci)) {
+            if (visibilities[ci] != 0) {
+                visible = true;
                 int yi = (ci + 1) * length;
                 yi += firstVisibleIdx; // skip left invisible part
                 // paths are cool & shit, but cannot be drawn partially, so let's fill 'em on demand
@@ -200,6 +206,8 @@ public final class ChartDrawable extends Drawable {
                 if (dColMaxY > _yMax) _yMax = dColMaxY;
             }
         }
+        if (!visible) return;
+
         double _yDiff = _yMax - _yMin;
         if (Double.isNaN(yDiff)) {
             yMin = _yMin;
@@ -239,6 +247,7 @@ public final class ChartDrawable extends Drawable {
         for (int ci = 0; ci < colCount; ci++) {
             Chart.Column column = columns[ci];
             paint.setColor(column.colour);
+            paint.setAlpha(visibilities[ci] & 0xFF);
 
             // y values are normalized to [0; height] with no regard to other data sets, let's scale according to that
             float colYDiff = (float) (column.maxValue - column.minValue);
@@ -328,7 +337,7 @@ public final class ChartDrawable extends Drawable {
             }
         }
     }
-    private void drawXValues(Canvas canvas, float xScale, float translateX) { // todo: animate (dis)appearance
+    private void drawXValues(Canvas canvas, float xScale, float translateX) {
         int length = data.x.values.length;
 
         // let's transform millis to [0; xValues.length]. For monotone Xes, this will give labels exactly under nodes;
@@ -531,12 +540,37 @@ public final class ChartDrawable extends Drawable {
         invalidateSelf();
     }
 
-    public void setColumnVisibleAt(int index, boolean whether) { // TODO: animate
+    public void setColumnVisibleAt(final int index, boolean whether) { // TODO: animate
         if (index < 0 || index >= data.columns.length) {
             throw new IndexOutOfBoundsException(String.format("index must be in [0; %d), %d given", data.columns.length, index));
         }
-        if (visible.get(index) != whether) {
-            visible.set(index, whether);
+        int alpha = visibilities[index] & 0xFF;
+        int targetAlpha = whether ? 255 : 0;
+        if (alpha != targetAlpha) {
+            if (visibilityAnimations == null) {
+                int length = visibilities.length;
+                visibilityAnimations = new ValueAnimator[length];
+                visibilityListeners = new ValueAnimator.AnimatorUpdateListener[length];
+            }
+            ValueAnimator anim = visibilityAnimations[index];
+            if (anim != null) {
+                anim.cancel();
+            }
+            if (visibilityListeners[index] == null) {
+                visibilityListeners[index] = new ValueAnimator.AnimatorUpdateListener() {
+                    @Override public void onAnimationUpdate(ValueAnimator animation) {
+                        visibilities[index] = (byte) (int) (Integer) animation.getAnimatedValue();
+                        invalidateSelf();
+                    }
+                };
+            }
+
+            anim = ObjectAnimator.ofInt(alpha, targetAlpha).setDuration(100);
+            anim.addUpdateListener(visibilityListeners[index]);
+            anim.start();
+            visibilityAnimations[index] = anim;
+            System.out.println("anim at " + index + " from " + alpha + " to " + targetAlpha);
+
             invalidateSelf();
         }
     }
@@ -609,7 +643,7 @@ public final class ChartDrawable extends Drawable {
             dest = new double[length];
         }
         for (int i = 0; i < length; i++) {
-            dest[i] = visible.get(i) ? cols[i].values[index] : Double.NaN;
+            dest[i] = visibilities[i] == (byte) 255 ? cols[i].values[index] : Double.NaN;
         }
         return dest;
     }
@@ -647,7 +681,7 @@ public final class ChartDrawable extends Drawable {
         int chartHeight = height - bottomPadding;
         float heightFactor = (float) chartHeight / height;
         for (int i = 0; i < colCnt; i++) {
-            if (visible.get(i)) {
+            if (visibilities[i] == (byte) 255) {
                 Chart.Column column = columns[i];
                 double colYMax = column.maxValue;
                 double colYDiff = colYMax - column.minValue;
