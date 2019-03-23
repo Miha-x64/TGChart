@@ -26,6 +26,7 @@ import android.widget.AdapterView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.ColorInt;
 import androidx.core.view.ViewCompat;
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
@@ -34,6 +35,7 @@ import com.codemonkeylabs.fpslibrary.TinyDancer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Random;
 
 
 public final class MainActivity extends Activity
@@ -103,6 +105,23 @@ public final class MainActivity extends Activity
         ViewCompat.setBackground(rangeBarChartView, new InsetDrawable(smallChart, rangeBar.getPaddingLeft(), 0, rangeBar.getPaddingRight(), 0));
         rangeBarChartView.setPadding(0, 0, 0, 0);
         rangeBar.setSelectionChangeListener(this); // split up chart and bar, so invalidate() will trigger only a single redraw
+
+        sheetShadow.setOnClickListener(new View.OnClickListener() {
+            private int clicks = 0;
+            private final String[] data = {
+                    "\uD83D\uDC4B hello Telegram people!",
+                    "App by Mike Gorünov \uD83D\uDC81\u200D♂️ for Telegram Contest",
+                    "App by @Harmonizr \uD83C\uDF75 for Telegram Contest",
+                    "github.com/Miha-x64 \uD83D\uDC68\u200D\uD83D\uDCBB"
+            };
+            private Random random;
+            @Override public void onClick(View v) {
+                if (clicks++ % 8 == 0) {
+                    if (random == null) random = new Random();
+                    Toast.makeText(v.getContext(), data[random.nextInt(data.length)], Toast.LENGTH_LONG).show();
+                }
+            }
+        });
 
         columnChooser.setData(value.columns, this);
         applyColours(colourMode, false);
