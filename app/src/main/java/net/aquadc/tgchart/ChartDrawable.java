@@ -440,8 +440,8 @@ public final class ChartDrawable extends Drawable {
      * @return how many times bigger {@param maxTextWidth} should be
      */
     private int fitTexts(float firstVisibleX, float firstInvisibleX, int textLengthX,
-                             /*only for measuring*/ float maxTextWidth,
-                             /*only for drawing*/ Canvas canvas, float translateX, float xScale, float y) {
+                         /*only for measuring*/ float maxTextWidth,
+                         /*only for drawing*/ Canvas canvas, float translateX, float xScale, float y) {
 
         if (canvas != null) {
             if (prevTextLengthX != -1 && textAlphaAnimator == null) {
@@ -470,9 +470,10 @@ public final class ChartDrawable extends Drawable {
             int x = firstVisibleXRnd + i * textLengthX;
             float xPos = width * x / length;
             int xIdx = indexOfClosest(normalized, 0, length, xPos);
-//            xPos = normalized[xIdx]; // fixme: we seem to have a precision issue; try comparing xPos to normalized[xIdx]
+            xPos = normalized[xIdx]; // find a real point near xPos
 
             xValueFormatter.formatValueInto(texts, xValues[xIdx]);
+//            texts.append('|'); // debug number placements
             float textWidth = numberPaint.measureText(texts, 0, texts.length());
             if (canvas == null) { // dry run just for measurement
                 texts.setLength(0);
@@ -485,7 +486,6 @@ public final class ChartDrawable extends Drawable {
                 float xq = -1.1f * xOnScreen / width + .05f; // [.05; -1.05]
                 numberPaint.setAlpha(i%2 == 0 ? 255 : animatedTextAlpha);
                 canvas.drawText(texts, 0, texts.length(), xOnScreen + xq * textWidth, y, numberPaint);
-//                canvas.drawLine(xOnScreen, height() - 100, xOnScreen, height(), numberPaint); // debug number placements
                 texts.setLength(0);
             }
         }
@@ -640,14 +640,13 @@ public final class ChartDrawable extends Drawable {
     }
 
     private static int indexOfClosest(float[] haystack, int fromIndex, int toIndex, float needle) {
-        int index = Arrays.binarySearch(haystack, fromIndex, toIndex, needle);
-        if (index >= 0) {
-            return index;
-        } else {
-            index = -index - 1;
-            if (index == toIndex) index--; // insertion point == length
-            return index;
+        if ((fromIndex = Arrays.binarySearch(haystack, fromIndex, toIndex, needle)) < 0) {
+            fromIndex = -fromIndex - 1; // save up a local variable by reusing fromIndex (just because I can LOL)
+            if (fromIndex == toIndex || // insertion point == length
+                (fromIndex > 0 && needle - haystack[fromIndex - 1] < haystack[fromIndex] - needle))
+                fromIndex--; // ^^ insertion point is always right point, choose left one if it's closer
         }
+        return fromIndex;
     }
 
     public interface ValueFormatter {
