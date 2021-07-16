@@ -206,16 +206,21 @@ public final class ChartDrawable extends Drawable {
                 float firstX = normalized[xi++], firstY = normalized[yi++];
                 float colMinY = firstY, colMaxY = firstY;
                 int minYIdx = firstVisibleIdx, maxYIdx = firstVisibleIdx;
-                path.moveTo(firstX, firstY);
-                while (xi <= lastVisibleIdx) {
-                    float x = normalized[xi], y = normalized[yi];
-                    if (y < colMinY) {
-                        colMinY = y; maxYIdx = xi;
-                    } else if (y > colMaxY) {
-                        colMaxY = y; minYIdx = xi;
-                    } // min & max are mixed because 'normalized' values are inverted
-                    path.lineTo(x, y);
-                    xi++; yi++;
+                if (Float.isNaN(firstX)) {
+                    path.moveTo(0f, 0f);
+                    path.lineTo(width(), 0f);
+                } else {
+                    path.moveTo(firstX, firstY);
+                    while (xi <= lastVisibleIdx) {
+                        float x = normalized[xi], y = normalized[yi];
+                        if (y < colMinY) {
+                            colMinY = y; maxYIdx = xi;
+                        } else if (y > colMaxY) {
+                            colMaxY = y; minYIdx = xi;
+                        } // min & max are mixed because 'normalized' values are inverted
+                        path.lineTo(x, y);
+                        xi++; yi++;
+                    }
                 }
                 // don't mind right invisible part
 
@@ -279,9 +284,8 @@ public final class ChartDrawable extends Drawable {
 
             // y values are normalized to [0; height] with no regard to other data sets, let's scale according to that
             float colYDiff = (float) (column.maxValue - column.minValue);
-//            float yScale = (float) (colYDiff / yDiff) * heightFactor;
-            float yScale = (float) (colYDiff / yDiff) * heightFactor;
-//            float translateY = (float) ((yMax - column.maxValue) / yDiff * chartHeight);
+            float yScale = colYDiff == 0.0 ? 1f : (float) (colYDiff / yDiff);
+            yScale *= heightFactor;
             float translateY = (float) ((yMax - column.maxValue) / yDiff * chartHeight);
 
             Path path = paths[ci];
